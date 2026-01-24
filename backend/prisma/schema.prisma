@@ -1,0 +1,167 @@
+// Schéma Prisma pour la gestion centralisée des criminels
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== MODÈLES UTILISATEURS ====================
+
+// Table des utilisateurs (agents de sécurité)
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String   // Mot de passe hashé
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  profile       Profile?
+  userRoles     UserRole[]
+  auditLogs     AuditLog[]
+  criminalsCreated Criminal[] @relation("CreatedBy")
+  criminalsUpdated Criminal[] @relation("UpdatedBy")
+
+  @@map("users")
+}
+
+// Table des profils utilisateurs
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  firstName   String
+  lastName    String
+  phoneNumber String?
+  service     String?  // Service d'affectation (Police, Gendarmerie, etc.)
+  grade       String?  // Grade de l'agent
+  photo       String?  // URL de la photo de profil
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// Table des rôles
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // ADMIN, AGENT, VIEWER
+  description String?
+  permissions Json     // Permissions sous forme JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+// Table de liaison utilisateurs-rôles (relation many-to-many)
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  assignedAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ==================== MODÈLES CRIMINELS ====================
+
+// Table des types de crimes
+model CrimeType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique // Code du crime (ex: VOL001, MEUR001)
+  description String?
+  severity    String   // LOW, MEDIUM, HIGH, CRITICAL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  criminals Criminal[]
+
+  @@map("crime_types")
+}
+
+// Table des criminels
+model Criminal {
+  id              String    @id @default(uuid())
+  caseNumber      String    @unique // Numéro de dossier unique
+  firstName       String
+  lastName        String
+  alias           String?   // Surnom/Alias
+  dateOfBirth     DateTime?
+  placeOfBirth    String?
+  nationality     String?
+  gender          String?   // MALE, FEMALE, OTHER
+  photo           String?   // URL de la photo
+  fingerprint     String?   // Données d'empreintes digitales
+  
+  // Informations du crime
+  crimeTypeId     String
+  crimeDate       DateTime?
+  crimeLocation   String?
+  description     String    @db.Text
+  status          String    @default("ACTIVE") // ACTIVE, ARRESTED, DECEASED, UNKNOWN
+  dangerLevel     String?   // LOW, MEDIUM, HIGH, CRITICAL
+  
+  // Informations de contact
+  lastKnownAddress String?
+  phoneNumber      String?
+  
+  // Métadonnées
+  createdById     String
+  updatedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  crimeType   CrimeType @relation(fields: [crimeTypeId], references: [id])
+  createdBy   User      @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedBy   User?     @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([caseNumber])
+  @@index([firstName, lastName])
+  @@index([crimeTypeId])
+  @@index([status])
+  @@map("criminals")
+}
+
+// ==================== SYSTÈME D'AUDIT ====================
+
+// Table des journaux d'audit
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
+  entity      String   // CRIMINAL, USER, CRIME_TYPE, etc.
+  entityId    String?
+  changes     Json?    // Changements effectués (avant/après)
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
