@@ -24,6 +24,7 @@ import {
 import { Plus, Search, LayoutGrid, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { Criminal } from '@/types';
 
 export default function CriminalsList() {
   const navigate = useNavigate();
@@ -51,17 +52,29 @@ export default function CriminalsList() {
   });
 
   const handleDelete = (id: string) => {
-    setDeleteId(id);
+    // Ajout d'un petit délai pour éviter les conflits de rendu
+    setTimeout(() => {
+      setDeleteId(id);
+    }, 0);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteId) {
-      deleteCriminal(deleteId);
-      toast({
-        title: 'Dossier supprimé',
-        description: 'Le dossier a été supprimé avec succès.',
-      });
-      setDeleteId(null);
+      try {
+        await deleteCriminal(deleteId);
+        toast({
+          title: 'Dossier supprimé',
+          description: 'Le dossier a été supprimé avec succès.',
+        });
+      } catch (error) {
+        toast({
+          title: 'Erreur',
+          description: 'Impossible de supprimer le dossier',
+          variant: 'destructive',
+        });
+      } finally {
+        setDeleteId(null);
+      }
     }
   };
 

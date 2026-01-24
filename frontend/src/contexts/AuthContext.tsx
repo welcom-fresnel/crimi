@@ -34,18 +34,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Charger l'utilisateur depuis localStorage au démarrage
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      if (storedToken && storedUser) {
+        try {
+          // Vérifier si le token est toujours valide
+          const response = await authAPI.getProfile();
+          
+          if (response.success) {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
 
-      // Connexion WebSocket
-      socketService.connect(storedToken, JSON.parse(storedUser).profile?.service);
-    }
+            // Connexion WebSocket
+            socketService.connect(storedToken, JSON.parse(storedUser).profile?.service);
+          } else {
+            // Token invalide, nettoyer localStorage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+        } catch (error) {
+          console.error('Token invalide:', error);
+          // Token invalide, nettoyer localStorage
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      }
 
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   // Login

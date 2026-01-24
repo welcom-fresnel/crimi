@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CriminalsProvider } from '@/contexts/CriminalsContext';
 import { AppLayout } from '@/components/layout/AppLayout';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import Index from './pages/Index';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -16,6 +17,14 @@ import CriminalEdit from './pages/CriminalEdit';
 import SearchPage from './pages/SearchPage';
 import HistoryPage from './pages/HistoryPage';
 import NotFound from './pages/NotFound';
+
+// Configuration des flags futures React Router v7
+const routerConfig = {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  },
+};
 
 const queryClient = new QueryClient();
 
@@ -94,19 +103,21 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <CriminalsProvider>
-            <AppRoutes />
-          </CriminalsProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter {...routerConfig}>
+          <AuthProvider>
+            <CriminalsProvider>
+              <AppRoutes />
+            </CriminalsProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

@@ -57,74 +57,92 @@ export default function HistoryPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date & Heure</TableHead>
-                <TableHead>Utilisateur</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Dossier concerné</TableHead>
-                <TableHead>Détails</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {auditLogs && auditLogs.length > 0 ? (
-                auditLogs.map(log => (
-                  <TableRow key={log.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {format(new Date(log.createdAt || log.timestamp), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-xs font-medium text-primary">
-                            {(log.userName || log.user?.username || 'U')
-                              .split(' ')
-                              .map((n: string) => n[0])
-                              .join('')
-                              .toUpperCase()
-                              .slice(0, 2)}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[120px]">Date & Heure</TableHead>
+                  <TableHead className="min-w-[100px]">Utilisateur</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead className="min-w-[80px]">Dossier</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[150px]">Détails</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {auditLogs && auditLogs.length > 0 ? (
+                  auditLogs.map(log => (
+                    <TableRow key={log.id}>
+                      <TableCell className="whitespace-nowrap">
+                        <div className="text-sm">
+                          {format(new Date(log.createdAt || log.timestamp), "dd/MM/yyyy", { locale: fr })}
+                          <br />
+                          <span className="text-muted-foreground text-xs">
+                            {format(new Date(log.createdAt || log.timestamp), "HH:mm", { locale: fr })}
                           </span>
                         </div>
-                        <span className="font-medium">{log.userName || log.user?.username || 'Utilisateur'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getActionIcon(log.action?.toLowerCase() || 'view')}
-                        {getActionBadge(log.action?.toLowerCase() || 'view')}
-                      </div>
-                    </TableCell>
-                    <TableCell>{log.criminalName || log.entityId || '-'}</TableCell>
-                    <TableCell>
-                      {log.changes ? (
-                        <span className="text-sm text-muted-foreground">
-                          {typeof log.changes === 'object' 
-                            ? Object.entries(log.changes)
-                                .map(([key, val]: [string, any]) => {
-                                  if (val && typeof val === 'object' && ('old' in val || 'before' in val)) {
-                                    return `${key}: ${val.old || val.before} → ${val.new || val.after}`;
-                                  }
-                                  return `${key}: modifié`;
-                                })
-                                .join(', ')
-                            : 'Modifications effectuées'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-medium text-primary">
+                              {(log.userName || log.user?.username || 'U')
+                                .split(' ')
+                                .map((n: string) => n[0])
+                                .join('')
+                                .toUpperCase()
+                                .slice(0, 2)}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium truncate max-w-[80px]">
+                            {log.userName || log.user?.username || 'Utilisateur'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            {getActionIcon(log.action?.toLowerCase() || 'view')}
+                            <span className="text-xs">
+                              {getActionBadge(log.action?.toLowerCase() || 'view')}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm truncate max-w-[60px] block">
+                          {log.criminalName || log.entityId || '-'}
                         </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {log.changes ? (
+                          <span className="text-sm text-muted-foreground">
+                            {typeof log.changes === 'object' 
+                              ? Object.entries(log.changes)
+                                  .map(([key, val]: [string, any]) => {
+                                    if (val && typeof val === 'object' && ('old' in val || 'before' in val)) {
+                                      return `${key}: ${val.old || val.before} → ${val.new || val.after}`;
+                                    }
+                                    return `${key}: modifié`;
+                                  })
+                                  .join(', ')
+                              : 'Modifications effectuées'}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      Aucun log d'audit disponible
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    Aucun log d'audit disponible
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

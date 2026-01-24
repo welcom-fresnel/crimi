@@ -76,7 +76,7 @@ app.use(errorHandler);
 
 // ==================== DÉMARRAGE DU SERVEUR ====================
 
-const PORT = config.port;
+const PORT = Number(config.port);
 
 const startServer = async () => {
   try {
@@ -88,12 +88,13 @@ const startServer = async () => {
     socketService.initialize(httpServer);
 
     // Démarrer le serveur HTTP (avec Express et Socket.io)
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log('');
       console.log('═══════════════════════════════════════════════════');
       console.log(`🚀 Serveur démarré sur le port ${PORT}`);
       console.log(`🌍 Mode: ${config.nodeEnv}`);
       console.log(`📍 URL: http://localhost:${PORT}`);
+      console.log(`🌐 Réseau: http://0.0.0.0:${PORT}`);
       console.log(`🔗 API: http://localhost:${PORT}/api/health`);
       console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
       console.log(`📡 Synchronisation temps réel activée`);

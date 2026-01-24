@@ -3,32 +3,7 @@ import { criminalsAPI, crimeTypesAPI, auditAPI } from '../services/api';
 import { socketService } from '../services/socket.service';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
-
-interface Criminal {
-  id: string;
-  caseNumber: string;
-  firstName: string;
-  lastName: string;
-  alias?: string;
-  status: string;
-  dangerLevel?: string;
-  crimeType: {
-    id: string;
-    name: string;
-    code: string;
-    severity: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface CrimeType {
-  id: string;
-  name: string;
-  code: string;
-  severity: string;
-  description?: string;
-}
+import { Criminal, CrimeType } from '../types';
 
 interface CriminalsContextType {
   criminals: Criminal[];
@@ -112,8 +87,6 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Charger les criminels et types de crimes au démarrage
   useEffect(() => {
-    let isMounted = true;
-
     if (isAuthenticated) {
       fetchCriminals();
       fetchCrimeTypes();
@@ -122,7 +95,6 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     return () => {
-      isMounted = false;
       socketService.off('criminal:created');
       socketService.off('criminal:updated');
       socketService.off('criminal:deleted');

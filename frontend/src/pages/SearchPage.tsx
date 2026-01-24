@@ -37,8 +37,7 @@ export default function SearchPage() {
 
     if (searchFileNumber) {
       filtered = filtered.filter(c =>
-        c.caseNumber?.toLowerCase().includes(searchFileNumber.toLowerCase()) ||
-        c.fileNumber?.toLowerCase().includes(searchFileNumber.toLowerCase())
+        c.caseNumber?.toLowerCase().includes(searchFileNumber.toLowerCase())
       );
     }
 
@@ -81,6 +80,7 @@ export default function SearchPage() {
                 placeholder="Ex: Diallo, Moussa..."
                 value={searchName}
                 onChange={e => setSearchName(e.target.value)}
+                className="text-sm"
               />
             </div>
             <div className="space-y-2">
@@ -90,12 +90,13 @@ export default function SearchPage() {
                 placeholder="Ex: DKR-2024-001"
                 value={searchFileNumber}
                 onChange={e => setSearchFileNumber(e.target.value)}
+                className="text-sm"
               />
             </div>
             <div className="space-y-2">
               <Label>Type de crime</Label>
               <Select value={searchCrimeType} onValueChange={setSearchCrimeType}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Tous les types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -115,7 +116,7 @@ export default function SearchPage() {
             <div className="space-y-2">
               <Label>Statut</Label>
               <Select value={searchStatus} onValueChange={setSearchStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Tous les statuts" />
                 </SelectTrigger>
                 <SelectContent>
@@ -128,12 +129,12 @@ export default function SearchPage() {
               </Select>
             </div>
           </div>
-          <div className="flex gap-4 mt-6">
-            <Button onClick={handleSearch}>
+          <div className="flex flex-col sm:flex-row gap-4 mt-6">
+            <Button onClick={handleSearch} className="w-full sm:w-auto">
               <Search className="h-4 w-4 mr-2" />
               Rechercher
             </Button>
-            <Button variant="outline" onClick={handleReset}>
+            <Button variant="outline" onClick={handleReset} className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Réinitialiser
             </Button>

@@ -1,10 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 class SocketService {
   private socket: Socket | null = null;
-  private listeners: Map<string, Function[]> = new Map();
+  private listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
 
   // Connexion au serveur WebSocket
   connect(token: string, postId?: string) {
@@ -61,7 +61,7 @@ class SocketService {
   }
 
   // Écouter un événement
-  on(event: string, callback: Function) {
+  on(event: string, callback: (...args: any[]) => void) {
     // Sauvegarder le listener
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -70,12 +70,12 @@ class SocketService {
 
     // Attacher au socket si connecté
     if (this.socket) {
-      this.socket.on(event, callback as any);
+      this.socket.on(event, callback);
     }
   }
 
   // Retirer un listener
-  off(event: string, callback?: Function) {
+  off(event: string, callback?: (...args: any[]) => void) {
     if (callback) {
       const callbacks = this.listeners.get(event);
       if (callbacks) {
@@ -84,7 +84,7 @@ class SocketService {
           callbacks.splice(index, 1);
         }
       }
-      this.socket?.off(event, callback as any);
+      this.socket?.off(event, callback);
     } else {
       this.listeners.delete(event);
       this.socket?.off(event);
