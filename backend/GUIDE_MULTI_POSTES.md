@@ -117,7 +117,18 @@ CORS_ORIGIN=http://localhost:8081
 # ============================================
 # BASE DE DONNÉES (MÊME BASE pour tous les postes)
 # ============================================
-DATABASE_URL=postgresql://username:password@localhost:5432/securit_afrique_hub
+# ⚠️ IMPORTANT : Remplacer localhost par l'IP réelle du serveur central
+DATABASE_URL=postgresql://username:password@IP_DU_SERVEUR_CENTRAL:5432/securit_afrique_hub
+
+# Exemples selon votre architecture :
+# Option 1 : Serveur dédié dans le cloud
+# DATABASE_URL=postgresql://admin:password@db.votre-entreprise.com:5432/securit_afrique_hub
+
+# Option 2 : Serveur local dans un commissariat central
+# DATABASE_URL=postgresql://postgres:password@192.168.1.100:5432/securit_afrique_hub
+
+# Option 3 : Base de données managée (AWS RDS, ElephantSQL, etc.)
+# DATABASE_URL=postgresql://user:pass@elephantsql.com:5432/securit_afrique_hub
 
 # ============================================
 # IDENTIFIANT DU POSTE (UNIQUE)
@@ -129,47 +140,61 @@ POST_NAME=Commissariat de Dakar Plateau
 **⚠️ IMPORTANT :**
 - `PORT` : Doit être **unique** pour chaque poste (5000, 5001, 5002, etc.)
 - `CORS_ORIGIN` : Doit correspondre à l'URL du frontend de **ce poste**
-- `DATABASE_URL` : **Même base de données** pour tous les postes
+- `DATABASE_URL` : **Même base de données centralisée** pour tous les postes (remplacer localhost par l'IP du serveur central)
 - `JWT_SECRET` : **Même secret** pour tous les postes (sinon les tokens ne fonctionneront pas)
 - `POST_ID` : Identifiant **unique** pour ce poste (utilisé dans WebSocket)
 
-#### 2.3. Configurer la base de données
+#### 2.3. Vérifier la connexion à la base de données centralisée
 
-**Si la base de données n'existe pas encore :**
+**⚠️ IMPORTANT :** La base de données doit déjà exister sur le serveur central !
 
 ```bash
-# Créer la base de données PostgreSQL
-createdb securit_afrique_hub
+# Vérifier la connexion depuis le nouveau poste
+psql -U username -h IP_DU_SERVEUR_CENTRAL -d securit_afrique_hub -c "SELECT 1;"
 
-# Ou via psql
-psql -U postgres
-CREATE DATABASE securit_afrique_hub;
-\q
+# 🎯 COMMENT TROUVER VOTRE USERNAME POSTGRESQL :
+
+# Option 1 : Username par défaut (le plus courant)
+psql -U postgres -h IP_DU_SERVEUR_CENTRAL -d securit_afrique_hub -c "SELECT 1;"
+
+# Option 2 : Vérifier les utilisateurs existants sur le serveur central
+# Connectez-vous d'abord au serveur central, puis :
+psql -U postgres -c "\du"
+
+# Option 3 : Username Windows (si PostgreSQL installé avec Windows)
+psql -U Administrateur -h IP_DU_SERVEUR_CENTRAL -d securit_afrique_hub -c "SELECT 1;"
+psql -U votre_nom_windows -h IP_DU_SERVEUR_CENTRAL -d securit_afrique_hub -c "SELECT 1;"
+
+# Option 4 : Username de votre application (si configuré)
+psql -U securit_afrique_user -h IP_DU_SERVEUR_CENTRAL -d securit_afrique_hub -c "SELECT 1;"
+
+# Si la connexion échoue, vérifiez :
+# 1. L'IP du serveur central est correcte
+# 2. Le serveur PostgreSQL accepte les connexions distantes
+# 3. Les identifiants sont corrects
+# 4. Le mot de passe (vous serez invité à le taper)
 ```
 
-**Si la base de données existe déjà (cas normal) :**
+#### 2.4. Initialiser la base de données (SEULEMENT le premier poste)
 
 ```bash
-# Vérifier la connexion
-psql -U username -d securit_afrique_hub -c "SELECT 1;"
-```
+# ⚠️ À n'exécuter que sur le PREMIER poste installé !
+# Les autres postes n'ont besoin que de se connecter
 
-#### 2.4. Initialiser la base de données
-
-```bash
 # Générer le client Prisma
 npm run prisma:generate
 
-# Appliquer les migrations (si nécessaire)
+# Appliquer les migrations (uniquement sur le premier poste)
 npm run prisma:migrate
 
-# Charger les données initiales (rôles, utilisateurs, types de crimes)
+# Charger les données initiales (uniquement sur le premier poste)
 npm run prisma:seed
 ```
 
-**⚠️ ATTENTION :** 
-- Ne lancez `prisma:seed` **qu'une seule fois** sur la première installation
-- Si d'autres postes utilisent déjà la base, **ne relancez pas le seed** (les données existent déjà)
+**🚨 TRÈS IMPORTANT :**
+- `prisma:migrate` et `prisma:seed` : **UNIQUEMENT** sur le **premier poste**
+- Postes suivants : **SEULEMENT** `prisma:generate`
+- Si vous relancez le seed sur un poste existant, vous dupliquerez les données !
 
 ---
 
