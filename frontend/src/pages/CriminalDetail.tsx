@@ -49,15 +49,19 @@ export default function CriminalDetail() {
           <Card className="glass-card">
             <CardContent className="p-6">
               <div className="aspect-square rounded-lg bg-muted flex items-center justify-center mb-4">
-                {criminal.photoUrl ? (
-                  <img
-                    src={criminal.photoUrl}
-                    alt={`${criminal.firstName} ${criminal.lastName}`}
-                    className="h-full w-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <User className="h-20 w-20 text-muted-foreground" />
-                )}
+                {(() => {
+                  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+                  const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
+                  return photoSrc ? (
+                    <img
+                      src={photoSrc}
+                      alt={`${criminal.firstName} ${criminal.lastName}`}
+                      className="h-full w-full object-cover rounded-lg"
+                    />
+                  ) : (
+                    <User className="h-20 w-20 text-muted-foreground" />
+                  );
+                })()}
               </div>
               <div className="text-center">
                 <h2 className="text-xl font-semibold">

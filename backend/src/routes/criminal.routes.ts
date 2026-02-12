@@ -9,6 +9,19 @@ import { auditLog, saveOriginalData } from '../middlewares/audit.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import { createCriminalValidator, updateCriminalValidator } from '../validators/criminal.validator';
 import { criminalService } from '../services/criminal.service';
+import multer from 'multer';
+import path from 'path';
+
+// configure multer storage to save directly into uploads/photos
+const photosPath = path.resolve(process.cwd(), 'uploads', 'photos');
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, photosPath),
+  filename: (_req, file, cb) => {
+    const unique = `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
+    cb(null, unique);
+  },
+});
+const upload = multer({ storage });
 
 const router = Router();
 
@@ -86,6 +99,19 @@ router.delete(
   saveOriginalData('CRIMINAL', (id: string) => criminalService.getCriminalById(id)),
   auditLog('DELETE', 'CRIMINAL'),
   criminalController.deleteCriminal
+);
+
+/**
+ * @route   POST /api/criminals/:id/photo
+ * @desc    Upload a photo for a criminal
+ * @access  Private (ADMIN, AGENT)
+ */
+router.post(
+  '/:id/photo',
+  authorize('criminals', 'update'),
+  upload.single('photo'),
+  auditLog('UPDATE', 'CRIMINAL'),
+  criminalController.uploadPhoto
 );
 
 export default router;

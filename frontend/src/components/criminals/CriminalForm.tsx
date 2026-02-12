@@ -42,6 +42,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
   const navigate = useNavigate();
   const { user } = useAuth();
   const { crimeTypes, addCriminal, updateCriminal } = useCriminals();
+  const { upsertCriminal } = useCriminals();
 
   const {
     register,
@@ -108,10 +109,28 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
     };
 
     try {
+      let createdId: string | null = null;
       if (isEditing && criminal) {
         await updateCriminal(criminal.id, backendData);
+        createdId = criminal.id;
       } else {
-        await addCriminal(backendData);
+        const res = await addCriminal(backendData);
+        createdId = res?.data?.id || null;
+      }
+
+      // If a photo file was selected, upload it and update local state immediately
+      const photoInput = (document.getElementById('photo') as HTMLInputElement);
+      if (photoInput && photoInput.files && photoInput.files.length > 0 && createdId) {
+        try {
+          const file = photoInput.files[0];
+          const { criminalsAPI } = await import('@/services/api');
+          const uploadResp = await criminalsAPI.uploadPhoto(createdId, file);
+          if (uploadResp && uploadResp.success && uploadResp.data) {
+            upsertCriminal(uploadResp.data);
+          }
+        } catch (err) {
+          console.error('Erreur upload photo:', err);
+        }
       }
       // Attendre un peu pour que le WebSocket mette à jour la liste avant de naviguer
       setTimeout(() => {
@@ -132,6 +151,10 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      <div className="mb-4">
+        <Label htmlFor="photo">Photo du criminel</Label>
+        <input id="photo" name="photo" type="file" accept="image/*" />
+      </div>
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass-card">
           <CardHeader>

@@ -12,8 +12,9 @@ interface CriminalsContextType {
   isLoading: boolean;
   fetchCriminals: () => Promise<void>;
   fetchCrimeTypes: () => Promise<void>;
-  addCriminal: (data: any) => Promise<void>;
+  addCriminal: (data: any) => Promise<any>;
   updateCriminal: (id: string, data: any) => Promise<void>;
+  upsertCriminal: (criminal: any) => void;
   deleteCriminal: (id: string) => Promise<void>;
   searchCriminals: (params: any) => Promise<void>;
 }
@@ -32,14 +33,15 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Criminel créé
     socketService.onCriminalCreated((data) => {
       console.log('🆕 Nouveau criminel reçu:', data.criminal);
-      
+
+      const mapped = mapCriminal(data.criminal);
       // Vérifier si le criminel n'existe pas déjà (éviter les doublons)
       setCriminals((prev) => {
-        const exists = prev.some(c => c.id === data.criminal.id);
+        const exists = prev.some(c => c.id === mapped.id);
         if (exists) {
           return prev;
         }
-        return [data.criminal, ...prev];
+        return [mapped, ...prev];
       });
       
       toast.info('Nouveau criminel enregistré', {
@@ -50,10 +52,9 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Criminel mis à jour
     socketService.onCriminalUpdated((data) => {
       console.log('✏️ Criminel mis à jour:', data.criminal);
-      
-      setCriminals((prev) =>
-        prev.map((c) => (c.id === data.criminal.id ? data.criminal : c))
-      );
+
+      const mapped = mapCriminal(data.criminal);
+      setCriminals((prev) => prev.map((c) => (c.id === mapped.id ? mapped : c)));
       
       toast.warning('Dossier mis à jour', {
         description: `Le dossier ${data.criminal.caseNumber} a été modifié`,
@@ -63,7 +64,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Criminel supprimé
     socketService.onCriminalDeleted((data) => {
       console.log('🗑️ Criminel supprimé:', data.criminalId);
-      
+
       setCriminals((prev) => prev.filter((c) => c.id !== data.criminalId));
       
       toast.error('Dossier supprimé', {
@@ -82,6 +83,26 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       toast[toastType](notification.title, {
         description: notification.message,
       });
+    });
+  };
+
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+  const mapCriminal = (c: any) => {
+    const photoPath = c.photo || c.photoUrl || null;
+    const photoUrl = photoPath ? `${apiBase}${photoPath}` : undefined;
+    return {
+      ...c,
+      photoUrl,
+    } as any;
+  };
+
+  const upsertCriminal = (c: any) => {
+    const mapped = mapCriminal(c);
+    setCriminals((prev) => {
+      const exists = prev.some((p) => p.id === mapped.id);
+      if (exists) return prev.map((p) => (p.id === mapped.id ? mapped : p));
+      return [mapped, ...prev];
     });
   };
 
@@ -108,9 +129,10 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setIsLoading(true);
       const response = await criminalsAPI.getAll(1, 100);
-      
+
       if (response.success) {
-        setCriminals(response.data);
+        const mapped = response.data.map((c: any) => mapCriminal(c));
+        setCriminals(mapped);
       }
     } catch (error) {
       console.error('Erreur de chargement:', error);
@@ -163,6 +185,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toast.success('Criminel créé', {
           description: `Dossier ${response.data.caseNumber} créé avec succès`,
         });
+        return response;
       }
     } catch (error: any) {
       console.error('Erreur de création:', error);
@@ -249,6 +272,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         fetchCrimeTypes,
         addCriminal,
         updateCriminal,
+        upsertCriminal,
         deleteCriminal,
         searchCriminals,
       }}

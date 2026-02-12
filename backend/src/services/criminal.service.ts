@@ -5,6 +5,7 @@
 import { prisma } from '../utils/prisma';
 import { ApiError } from '../utils/ApiError';
 import { CreateCriminalDto, UpdateCriminalDto, SearchCriminalDto } from '../types';
+// path/fs not required here
 
 class CriminalService {
   /**
@@ -48,6 +49,29 @@ class CriminalService {
     });
 
     return criminal;
+  }
+
+  /**
+   * Save photo URL for a criminal and return updated record
+   */
+  async saveCriminalPhoto(id: string, photoUrl: string, updatedById: string) {
+    // Vérifier si le criminel existe
+    const criminal = await prisma.criminal.findUnique({ where: { id } });
+    if (!criminal) {
+      throw new ApiError(404, 'Criminel non trouvé');
+    }
+
+    // Update DB
+    const updated = await prisma.criminal.update({
+      where: { id },
+      data: { photo: photoUrl, updatedById },
+      include: {
+        crimeType: true,
+        updatedBy: { select: { username: true, profile: true } },
+      },
+    });
+
+    return updated;
   }
 
   /**

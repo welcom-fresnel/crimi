@@ -12,15 +12,17 @@ interface CriminalCardProps {
 
 export function CriminalCard({ criminal, onDelete }: CriminalCardProps) {
   const navigate = useNavigate();
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
 
   return (
     <Card className="glass-card hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex gap-4">
-          <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-            {criminal.photoUrl ? (
+            <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+            {photoSrc ? (
               <img
-                src={criminal.photoUrl}
+                src={photoSrc}
                 alt={`${criminal.firstName} ${criminal.lastName}`}
                 className="h-full w-full object-cover rounded-lg"
               />

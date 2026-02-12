@@ -7,6 +7,7 @@ import { AuthRequest } from '../types';
 import { criminalService } from '../services/criminal.service';
 import { socketService } from '../services/socket.service';
 import { CriminalCreatedPayload, CriminalUpdatedPayload, CriminalDeletedPayload } from '../types/socket.types';
+import path from 'path';
 
 class CriminalController {
   /**
@@ -151,6 +152,41 @@ class CriminalController {
       });
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * Upload photo for a criminal
+   */
+  async uploadPhoto(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const file = (req as any).file;
+
+      if (!file) {
+        return res.status(400).json({ success: false, message: 'Aucun fichier reçu' });
+      }
+
+      const photoUrl = `/uploads/photos/${path.basename(file.path)}`;
+
+      const updatedCriminal = await criminalService.saveCriminalPhoto(id, photoUrl, req.user!.userId);
+
+      // Optionally emit update via socket
+      const payload: CriminalUpdatedPayload = {
+        criminal: updatedCriminal,
+        updatedBy: {
+          id: req.user!.userId,
+          username: req.user!.username,
+          postId: req.body.postId,
+        },
+        timestamp: new Date(),
+      };
+      // notify
+      try { socketService.notifyCriminalUpdated(payload); } catch (_) {}
+
+      return res.status(200).json({ success: true, message: 'Photo enregistrée', data: updatedCriminal });
+    } catch (error) {
+      return next(error);
     }
   }
 

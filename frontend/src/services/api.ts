@@ -90,6 +90,15 @@ export const criminalsAPI = {
     return response.data;
   },
 
+  uploadPhoto: async (id: string, file: File) => {
+    const form = new FormData();
+    form.append('photo', file);
+    const response = await api.post(`/criminals/${id}/photo`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
   search: async (params: any) => {
     const queryString = new URLSearchParams(params).toString();
     const response = await api.get(`/criminals/search?${queryString}`);

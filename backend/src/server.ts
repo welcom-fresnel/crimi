@@ -12,6 +12,8 @@ import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import routes from './routes';
 import { prisma } from './utils/prisma';
 import { socketService } from './services/socket.service';
+import path from 'path';
+import fs from 'fs';
 
 // Valider la configuration
 try {
@@ -33,9 +35,22 @@ const httpServer = createServer(app);
 app.use(helmet());
 
 // CORS
+const allowedOrigins = typeof config.corsOrigin === 'string'
+  ? config.corsOrigin.split(',').map((s) => s.trim())
+  : [];
+
 app.use(
   cors({
-    origin: config.corsOrigin,
+    origin: (incomingOrigin, callback) => {
+      // allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!incomingOrigin) return callback(null, true);
+
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(incomingOrigin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   })
 );
@@ -43,6 +58,13 @@ app.use(
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Ensure uploads folders exist and serve them statically
+const uploadsDir = path.resolve(process.cwd(), 'uploads');
+const photosDir = path.join(uploadsDir, 'photos');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir);
+app.use('/uploads', express.static(uploadsDir));
 
 // Logger HTTP
 if (config.nodeEnv === 'development') {
