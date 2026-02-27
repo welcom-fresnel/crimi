@@ -4,7 +4,7 @@
 
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller';
-import { authenticate } from '../middlewares/auth.middleware';
+import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import { registerValidator, loginValidator, changePasswordValidator } from '../validators/auth.validator';
 
@@ -13,10 +13,12 @@ const router = Router();
 /**
  * @route   POST /api/auth/register
  * @desc    Inscription d'un nouvel utilisateur
- * @access  Public (ou Admin seulement selon vos besoins)
+ * @access  Private (ADMIN)
  */
 router.post(
   '/register',
+  authenticate,
+  authorize('users', 'create'),
   validate(registerValidator),
   authController.register
 );

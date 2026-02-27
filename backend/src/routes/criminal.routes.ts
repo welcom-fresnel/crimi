@@ -12,107 +12,81 @@ import { criminalService } from '../services/criminal.service';
 import multer from 'multer';
 import path from 'path';
 
-// configure multer storage to save directly into uploads/photos
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const photosPath = path.resolve(process.cwd(), 'uploads', 'photos');
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, photosPath),
-  filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
-    cb(null, unique);
-  },
+const evidencesPath = path.resolve(process.cwd(), 'uploads', 'evidences');
+
+const createStorage = (destination: string) =>
+  multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, destination),
+    filename: (_req, file, cb) => {
+      const originalName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const unique = `${Date.now()}-${originalName}`;
+      cb(null, unique);
+    },
+  });
+
+const imageFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
+  if (!file.mimetype.startsWith('image/')) {
+    cb(new Error('Le fichier doit etre une image'));
+    return;
+  }
+  cb(null, true);
+};
+
+const uploadPhoto = multer({
+  storage: createStorage(photosPath),
+  limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  fileFilter: imageFileFilter,
 });
-const upload = multer({ storage });
+
+const uploadEvidence = multer({
+  storage: createStorage(evidencesPath),
+  limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  fileFilter: imageFileFilter,
+});
 
 const router = Router();
 
-// Toutes les routes nécessitent une authentification
 router.use(authenticate);
 
-/**
- * @route   GET /api/criminals/search
- * @desc    Rechercher des criminels
- * @access  Private (ADMIN, AGENT, VIEWER)
- */
-router.get(
-  '/search',
-  authorize('criminals', 'read'),
-  criminalController.searchCriminals
-);
+router.get('/search', authorize('criminals', 'read'), criminalController.searchCriminals);
 
-/**
- * @route   POST /api/criminals
- * @desc    Créer un nouveau criminel
- * @access  Private (ADMIN, AGENT)
- */
 router.post(
   '/',
   authorize('criminals', 'create'),
   validate(createCriminalValidator),
   auditLog('CREATE', 'CRIMINAL'),
-  criminalController.createCriminal
+  criminalController.createCriminal,
 );
 
-/**
- * @route   GET /api/criminals
- * @desc    Obtenir tous les criminels
- * @access  Private (ADMIN, AGENT, VIEWER)
- */
-router.get(
-  '/',
-  authorize('criminals', 'read'),
-  criminalController.getAllCriminals
-);
+router.get('/', authorize('criminals', 'read'), criminalController.getAllCriminals);
 
-/**
- * @route   GET /api/criminals/:id
- * @desc    Obtenir un criminel par ID
- * @access  Private (ADMIN, AGENT, VIEWER)
- */
-router.get(
-  '/:id',
-  authorize('criminals', 'read'),
-  criminalController.getCriminalById
-);
+router.get('/:id', authorize('criminals', 'read'), criminalController.getCriminalById);
 
-/**
- * @route   PUT /api/criminals/:id
- * @desc    Mettre à jour un criminel
- * @access  Private (ADMIN, AGENT)
- */
 router.put(
   '/:id',
   authorize('criminals', 'update'),
   validate(updateCriminalValidator),
   saveOriginalData('CRIMINAL', (id: string) => criminalService.getCriminalById(id)),
   auditLog('UPDATE', 'CRIMINAL'),
-  criminalController.updateCriminal
+  criminalController.updateCriminal,
 );
 
-/**
- * @route   DELETE /api/criminals/:id
- * @desc    Supprimer un criminel
- * @access  Private (ADMIN)
- */
-router.delete(
-  '/:id',
-  authorize('criminals', 'delete'),
-  saveOriginalData('CRIMINAL', (id: string) => criminalService.getCriminalById(id)),
-  auditLog('DELETE', 'CRIMINAL'),
-  criminalController.deleteCriminal
-);
-
-/**
- * @route   POST /api/criminals/:id/photo
- * @desc    Upload a photo for a criminal
- * @access  Private (ADMIN, AGENT)
- */
 router.post(
   '/:id/photo',
   authorize('criminals', 'update'),
-  upload.single('photo'),
+  uploadPhoto.single('photo'),
   auditLog('UPDATE', 'CRIMINAL'),
-  criminalController.uploadPhoto
+  criminalController.uploadPhoto,
+);
+
+router.post(
+  '/:id/evidences',
+  authorize('criminals', 'update'),
+  uploadEvidence.array('evidenceFiles', 6),
+  auditLog('UPDATE', 'CRIMINAL'),
+  criminalController.addEvidence,
 );
 
 export default router;
-

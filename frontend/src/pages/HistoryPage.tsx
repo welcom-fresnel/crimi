@@ -13,6 +13,13 @@ import { History, Plus, Pencil, Trash2, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
+interface ChangeValue {
+  old?: unknown;
+  new?: unknown;
+  before?: unknown;
+  after?: unknown;
+}
+
 export default function HistoryPage() {
   const { auditLogs } = useCriminals();
 
@@ -33,11 +40,12 @@ export default function HistoryPage() {
 
   const getActionBadge = (action: string) => {
     const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      create: { label: 'Création', variant: 'default' },
+      create: { label: 'Creation', variant: 'default' },
       update: { label: 'Modification', variant: 'secondary' },
       delete: { label: 'Suppression', variant: 'destructive' },
       view: { label: 'Consultation', variant: 'outline' },
     };
+
     const { label, variant } = config[action] || { label: action, variant: 'outline' as const };
     return <Badge variant={variant}>{label}</Badge>;
   };
@@ -46,18 +54,41 @@ export default function HistoryPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Historique des actions</h1>
-        <p className="text-muted-foreground">Traçabilité complète des opérations effectuées</p>
+        <p className="text-muted-foreground">Tracabilite complete des operations effectuees</p>
       </div>
 
       <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
-            Journal d'activité
+            Journal d'activite
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {auditLogs.length > 0 ? (
+              auditLogs.map((log) => (
+                <div key={log.id} className="rounded-lg border p-3 space-y-2 bg-background/70">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(log.createdAt || log.timestamp || Date.now()), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                    </div>
+                    {getActionBadge((log.action || 'view').toLowerCase())}
+                  </div>
+                  <div className="text-sm font-medium truncate">
+                    {log.userName || log.user?.username || 'Utilisateur'}
+                  </div>
+                  <div className="text-sm text-muted-foreground break-all">
+                    {log.criminalName || log.entityId || '-'}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-center py-6 text-sm text-muted-foreground">Aucun log d'audit disponible</p>
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -65,19 +96,19 @@ export default function HistoryPage() {
                   <TableHead className="min-w-[100px]">Utilisateur</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead className="min-w-[80px]">Dossier</TableHead>
-                  <TableHead className="hidden md:table-cell min-w-[150px]">Détails</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[150px]">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {auditLogs && auditLogs.length > 0 ? (
-                  auditLogs.map(log => (
+                {auditLogs.length > 0 ? (
+                  auditLogs.map((log) => (
                     <TableRow key={log.id}>
                       <TableCell className="whitespace-nowrap">
                         <div className="text-sm">
-                          {format(new Date(log.createdAt || log.timestamp), "dd/MM/yyyy", { locale: fr })}
+                          {format(new Date(log.createdAt || log.timestamp || Date.now()), 'dd/MM/yyyy', { locale: fr })}
                           <br />
                           <span className="text-muted-foreground text-xs">
-                            {format(new Date(log.createdAt || log.timestamp), "HH:mm", { locale: fr })}
+                            {format(new Date(log.createdAt || log.timestamp || Date.now()), 'HH:mm', { locale: fr })}
                           </span>
                         </div>
                       </TableCell>
@@ -101,9 +132,9 @@ export default function HistoryPage() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1">
-                            {getActionIcon(log.action?.toLowerCase() || 'view')}
+                            {getActionIcon((log.action || 'view').toLowerCase())}
                             <span className="text-xs">
-                              {getActionBadge(log.action?.toLowerCase() || 'view')}
+                              {getActionBadge((log.action || 'view').toLowerCase())}
                             </span>
                           </div>
                         </div>
@@ -116,16 +147,21 @@ export default function HistoryPage() {
                       <TableCell className="hidden md:table-cell">
                         {log.changes ? (
                           <span className="text-sm text-muted-foreground">
-                            {typeof log.changes === 'object' 
+                            {typeof log.changes === 'object'
                               ? Object.entries(log.changes)
-                                  .map(([key, val]: [string, any]) => {
-                                    if (val && typeof val === 'object' && ('old' in val || 'before' in val)) {
-                                      return `${key}: ${val.old || val.before} → ${val.new || val.after}`;
+                                  .map(([key, value]) => {
+                                    const change = value as ChangeValue;
+                                    if (
+                                      value &&
+                                      typeof value === 'object' &&
+                                      ('old' in value || 'before' in value)
+                                    ) {
+                                      return `${key}: ${change.old || change.before} -> ${change.new || change.after}`;
                                     }
-                                    return `${key}: modifié`;
+                                    return `${key}: modifie`;
                                   })
                                   .join(', ')
-                              : 'Modifications effectuées'}
+                              : 'Modifications effectuees'}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">-</span>

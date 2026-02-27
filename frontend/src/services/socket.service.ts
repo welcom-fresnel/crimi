@@ -2,9 +2,24 @@ import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
+type SocketListener = (...args: unknown[]) => void;
+
+interface CriminalSocketPayload {
+  criminal?: Record<string, unknown>;
+  criminalId?: string;
+  caseNumber?: string;
+  createdBy?: { username?: string };
+}
+
+interface NotificationPayload {
+  type?: 'error' | 'warning' | 'success' | 'info';
+  title?: string;
+  message?: string;
+}
+
 class SocketService {
   private socket: Socket | null = null;
-  private listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
+  private listeners: Map<string, SocketListener[]> = new Map();
 
   // Connexion au serveur WebSocket
   connect(token: string, postId?: string) {
@@ -61,7 +76,7 @@ class SocketService {
   }
 
   // Écouter un événement
-  on(event: string, callback: (...args: any[]) => void) {
+  on(event: string, callback: SocketListener) {
     // Sauvegarder le listener
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -75,7 +90,7 @@ class SocketService {
   }
 
   // Retirer un listener
-  off(event: string, callback?: (...args: any[]) => void) {
+  off(event: string, callback?: SocketListener) {
     if (callback) {
       const callbacks = this.listeners.get(event);
       if (callbacks) {
@@ -105,22 +120,22 @@ class SocketService {
   // ==================== MÉTHODES PRATIQUES ====================
 
   // Écouter les criminels créés
-  onCriminalCreated(callback: (data: any) => void) {
+  onCriminalCreated(callback: (data: CriminalSocketPayload) => void) {
     this.on('criminal:created', callback);
   }
 
   // Écouter les criminels mis à jour
-  onCriminalUpdated(callback: (data: any) => void) {
+  onCriminalUpdated(callback: (data: CriminalSocketPayload) => void) {
     this.on('criminal:updated', callback);
   }
 
   // Écouter les criminels supprimés
-  onCriminalDeleted(callback: (data: any) => void) {
+  onCriminalDeleted(callback: (data: CriminalSocketPayload) => void) {
     this.on('criminal:deleted', callback);
   }
 
   // Écouter les notifications
-  onNotification(callback: (data: any) => void) {
+  onNotification(callback: (data: NotificationPayload) => void) {
     this.on('notification', callback);
   }
 }

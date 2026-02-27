@@ -2,15 +2,14 @@ import { Criminal } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
-import { Eye, Pencil, Trash2, User } from 'lucide-react';
+import { Eye, Pencil, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface CriminalCardProps {
   criminal: Criminal;
-  onDelete?: (id: string) => void;
 }
 
-export function CriminalCard({ criminal, onDelete }: CriminalCardProps) {
+export function CriminalCard({ criminal }: CriminalCardProps) {
   const navigate = useNavigate();
   const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
   const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
@@ -43,7 +42,7 @@ export function CriminalCard({ criminal, onDelete }: CriminalCardProps) {
             <div className="mt-2 space-y-1">
               <p className="text-sm">
                 <span className="text-muted-foreground">Crime :</span>{' '}
-                <span className="font-medium">{criminal.crimeType.name}</span>
+                <span className="font-medium">{criminal.crimeType?.name || 'Type inconnu'}</span>
               </p>
               <p className="text-sm">
                 <span className="text-muted-foreground">Lieu :</span> {criminal.arrestLocation}
@@ -69,14 +68,6 @@ export function CriminalCard({ criminal, onDelete }: CriminalCardProps) {
           >
             <Pencil className="h-4 w-4 mr-1" />
             Modifier
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            onClick={() => onDelete?.(criminal.id)}
-          >
-            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </CardContent>

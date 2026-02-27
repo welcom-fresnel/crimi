@@ -14,6 +14,17 @@ class AuthService {
    * Inscrire un nouvel utilisateur
    */
   async register(data: CreateUserDto) {
+    if (!Array.isArray(data.roleIds) || data.roleIds.length === 0) {
+      throw new ApiError(400, 'Au moins un role est requis');
+    }
+
+    const rolesCount = await prisma.role.count({
+      where: { id: { in: data.roleIds } },
+    });
+
+    if (rolesCount !== data.roleIds.length) {
+      throw new ApiError(400, 'Un ou plusieurs roles sont invalides');
+    }
     // Vérifier si l'utilisateur existe déjà
     const existingUser = await prisma.user.findFirst({
       where: {

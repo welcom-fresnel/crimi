@@ -9,17 +9,16 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface CriminalsTableProps {
   criminals: Criminal[];
-  onDelete?: (id: string) => void;
 }
 
-export function CriminalsTable({ criminals, onDelete }: CriminalsTableProps) {
+export function CriminalsTable({ criminals }: CriminalsTableProps) {
   const navigate = useNavigate();
 
   return (
@@ -89,14 +88,6 @@ export function CriminalsTable({ criminals, onDelete }: CriminalsTableProps) {
                       onClick={() => navigate(`/criminals/${criminal.id}/edit`)}
                     >
                       <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => onDelete?.(criminal.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </TableCell>

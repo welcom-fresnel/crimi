@@ -21,7 +21,7 @@ export interface AuthRequest extends Request {
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
-export type CriminalStatus = 'ACTIVE' | 'ARRESTED' | 'DECEASED' | 'UNKNOWN';
+export type CriminalStatus = 'ACTIVE' | 'ARRESTED' | 'RELEASED' | 'DECEASED' | 'UNKNOWN';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
 export type EntityType = 'CRIMINAL' | 'USER' | 'CRIME_TYPE' | 'ROLE' | 'PROFILE';
@@ -76,6 +76,7 @@ export interface CreateCriminalDto {
   dangerLevel?: Severity;
   lastKnownAddress?: string;
   phoneNumber?: string;
+  arrestation?: CreateArrestationDto;
 }
 
 export interface UpdateCriminalDto {
@@ -96,6 +97,31 @@ export interface UpdateCriminalDto {
   dangerLevel?: Severity;
   lastKnownAddress?: string;
   phoneNumber?: string;
+  arrestation?: UpdateArrestationDto;
+}
+
+export interface CreateArrestationDto {
+  arrestDate?: string;
+  arrestLocation?: string;
+  arrestingUnit?: string;
+  arrestingOfficer?: string;
+  warrantNumber?: string;
+  notes?: string;
+}
+
+export interface UpdateArrestationDto {
+  arrestDate?: string | null;
+  arrestLocation?: string | null;
+  arrestingUnit?: string | null;
+  arrestingOfficer?: string | null;
+  warrantNumber?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateEvidenceDto {
+  title?: string;
+  description?: string;
+  fileUrls?: string[];
 }
 
 export interface CreateCrimeTypeDto {

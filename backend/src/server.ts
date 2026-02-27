@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { config, validateConfig } from './config';
+import { config, getCorsOrigins, validateConfig } from './config';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import routes from './routes';
 import { prisma } from './utils/prisma';
@@ -32,28 +32,23 @@ const httpServer = createServer(app);
 // ==================== MIDDLEWARES GLOBAUX ====================
 
 // Sécurité avec Helmet
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false,
+  }));
 
 // CORS
-const allowedOrigins = typeof config.corsOrigin === 'string'
-  ? config.corsOrigin.split(',').map((s) => s.trim())
-  : [];
+const allowedOrigins = getCorsOrigins();
 
-app.use(
-  cors({
-    origin: (incomingOrigin, callback) => {
-      // allow requests with no origin (like mobile apps, curl, or server-to-server)
-      if (!incomingOrigin) return callback(null, true);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // Postman/curl/mobile
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  credentials: true,
+}));
 
-      if (allowedOrigins.includes('*') || allowedOrigins.includes(incomingOrigin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-  })
-);
 
 // Body parser
 app.use(express.json());
@@ -62,9 +57,15 @@ app.use(express.urlencoded({ extended: true }));
 // Ensure uploads folders exist and serve them statically
 const uploadsDir = path.resolve(process.cwd(), 'uploads');
 const photosDir = path.join(uploadsDir, 'photos');
+const evidencesDir = path.join(uploadsDir, 'evidences');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir);
-app.use('/uploads', express.static(uploadsDir));
+if (!fs.existsSync(evidencesDir)) fs.mkdirSync(evidencesDir);
+app.use('/uploads', express.static(uploadsDir, {
+  setHeaders: (res) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  },
+}));
 
 // Logger HTTP
 if (config.nodeEnv === 'development') {
@@ -148,4 +149,5 @@ process.on('SIGTERM', async () => {
 startServer();
 
 export default app;
+
 

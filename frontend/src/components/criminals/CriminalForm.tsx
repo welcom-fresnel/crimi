@@ -16,19 +16,24 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 const criminalSchema = z.object({
-  firstName: z.string().min(2, 'Le prénom est requis'),
+  firstName: z.string().min(2, 'Le prenom est requis'),
   lastName: z.string().min(2, 'Le nom est requis'),
   birthDate: z.string().optional(),
   nationality: z.string().optional(),
   crimeTypeId: z.string().min(1, 'Le type de crime est requis'),
   arrestDate: z.string().min(1, "La date d'arrestation est requise"),
   arrestLocation: z.string().min(2, "Le lieu d'arrestation est requis"),
-  status: z.enum(['arrested', 'wanted', 'released', 'deceased']),
+  arrestingUnit: z.string().optional(),
+  arrestingOfficer: z.string().optional(),
+  warrantNumber: z.string().optional(),
+  arrestationNotes: z.string().optional(),
+  status: z.enum(['ARRESTED', 'ACTIVE', 'RELEASED', 'DECEASED', 'UNKNOWN']),
   notes: z.string().optional(),
+  evidenceTitle: z.string().optional(),
+  evidenceDescription: z.string().optional(),
 });
 
 type CriminalFormData = z.infer<typeof criminalSchema>;
@@ -40,7 +45,6 @@ interface CriminalFormProps {
 
 export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { crimeTypes, addCriminal, updateCriminal } = useCriminals();
   const { upsertCriminal } = useCriminals();
 
@@ -48,7 +52,6 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<CriminalFormData>({
     resolver: zodResolver(criminalSchema),
@@ -59,15 +62,26 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           birthDate: criminal.birthDate || criminal.dateOfBirth || '',
           nationality: criminal.nationality || '',
           crimeTypeId: criminal.crimeType?.id || '',
-          arrestDate: criminal.arrestDate || criminal.crimeDate || '',
-          arrestLocation: criminal.arrestLocation || criminal.crimeLocation || '',
-          status: (criminal.status === 'ARRESTED' ? 'arrested' :
-                  criminal.status === 'ACTIVE' ? 'wanted' :
-                  criminal.status === 'DECEASED' ? 'released' : 'deceased') as CriminalStatus,
+          arrestDate: criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate || '',
+          arrestLocation:
+            criminal.arrestation?.arrestLocation || criminal.arrestLocation || criminal.crimeLocation || '',
+          arrestingUnit: criminal.arrestation?.arrestingUnit || '',
+          arrestingOfficer: criminal.arrestation?.arrestingOfficer || '',
+          warrantNumber: criminal.arrestation?.warrantNumber || '',
+          arrestationNotes: criminal.arrestation?.notes || '',
+          status: criminal.status as CriminalStatus,
           notes: criminal.notes || criminal.description || '',
+          evidenceTitle: '',
+          evidenceDescription: '',
         }
       : {
-          status: 'arrested' as CriminalStatus,
+          status: 'ARRESTED' as CriminalStatus,
+          arrestingUnit: '',
+          arrestingOfficer: '',
+          warrantNumber: '',
+          arrestationNotes: '',
+          evidenceTitle: '',
+          evidenceDescription: '',
         },
   });
 
@@ -81,7 +95,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
 
   const onSubmit = async (data: CriminalFormData) => {
     if (!crimeTypes || crimeTypes.length === 0) {
-      toast.error('Erreur', { description: 'Les types de crimes ne sont pas chargés' });
+      toast.error('Erreur', { description: 'Les types de crimes ne sont pas charges' });
       return;
     }
 
@@ -91,7 +105,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       return;
     }
 
-    // Adapter les données pour le backend
+    // Adapter les donnees pour le backend
     const backendData = {
       caseNumber: isEditing && criminal ? criminal.caseNumber : generateCaseNumber(),
       firstName: data.firstName,
@@ -103,9 +117,15 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       crimeDate: data.arrestDate || undefined,
       crimeLocation: data.arrestLocation || undefined,
       description: data.notes || 'Aucune description',
-      status: data.status === 'arrested' ? 'ARRESTED' : 
-              data.status === 'wanted' ? 'ACTIVE' :
-              data.status === 'released' ? 'DECEASED' : 'UNKNOWN',
+      status: data.status,
+      arrestation: {
+        arrestDate: data.arrestDate || undefined,
+        arrestLocation: data.arrestLocation || undefined,
+        arrestingUnit: data.arrestingUnit || undefined,
+        arrestingOfficer: data.arrestingOfficer || undefined,
+        warrantNumber: data.warrantNumber || undefined,
+        notes: data.arrestationNotes || undefined,
+      },
     };
 
     try {
@@ -115,7 +135,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
         createdId = criminal.id;
       } else {
         const res = await addCriminal(backendData);
-        createdId = res?.data?.id || null;
+        createdId = res?.id || null;
       }
 
       // If a photo file was selected, upload it and update local state immediately
@@ -132,21 +152,40 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           console.error('Erreur upload photo:', err);
         }
       }
-      // Attendre un peu pour que le WebSocket mette à jour la liste avant de naviguer
-      setTimeout(() => {
-        navigate('/criminals');
-      }, 300);
+
+      // Ajouter les pieces a conviction (description + images)
+      const evidenceInput = document.getElementById('evidenceFiles') as HTMLInputElement | null;
+      const evidenceFiles = evidenceInput?.files ? Array.from(evidenceInput.files) : [];
+      const hasEvidenceText = !!data.evidenceTitle || !!data.evidenceDescription;
+      if (createdId && (hasEvidenceText || evidenceFiles.length > 0)) {
+        try {
+          const { criminalsAPI } = await import('@/services/api');
+          await criminalsAPI.addEvidence(createdId, {
+            title: data.evidenceTitle,
+            description: data.evidenceDescription,
+            files: evidenceFiles,
+          });
+        } catch (err) {
+          console.error('Erreur ajout piece a conviction:', err);
+          toast.error('Attention', {
+            description: 'Le dossier est cree mais la piece a conviction n a pas pu etre enregistree.',
+          });
+        }
+      }
+      // Naviguer directement apres la sauvegarde
+      navigate('/criminals');
     } catch (error) {
-      // L'erreur est déjà gérée dans le contexte
+      // L'erreur est deja geree dans le contexte
       console.error('Erreur lors de la soumission:', error);
     }
   };
 
   const statusOptions: { value: CriminalStatus; label: string }[] = [
-    { value: 'arrested', label: 'Arrêté' },
-    { value: 'wanted', label: 'Recherché' },
-    { value: 'released', label: 'Libéré' },
-    { value: 'deceased', label: 'Décédé' },
+    { value: 'ARRESTED', label: 'Arrete' },
+    { value: 'ACTIVE', label: 'Recherche' },
+    { value: 'RELEASED', label: 'Libere' },
+    { value: 'DECEASED', label: 'Decede' },
+    { value: 'UNKNOWN', label: 'Inconnu' },
   ];
 
   return (
@@ -158,7 +197,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="text-lg">Identité</CardTitle>
+            <CardTitle className="text-lg">Identite</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -170,7 +209,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="firstName">Prénom *</Label>
+                <Label htmlFor="firstName">Prenom *</Label>
                 <Input id="firstName" {...register('firstName')} placeholder="Moussa" />
                 {errors.firstName && (
                   <p className="text-sm text-destructive">{errors.firstName.message}</p>
@@ -183,8 +222,8 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                 <Input id="birthDate" type="date" {...register('birthDate')} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nationality">Nationalité</Label>
-                <Input id="nationality" {...register('nationality')} placeholder="Sénégalaise" />
+                <Label htmlFor="nationality">Nationalite</Label>
+                <Input id="nationality" {...register('nationality')} placeholder="Senegalaise" />
               </div>
             </div>
           </CardContent>
@@ -202,7 +241,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                 defaultValue={criminal?.crimeType.id}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un type" />
+                  <SelectValue placeholder="Selectionner un type" />
                 </SelectTrigger>
                 <SelectContent>
                   {crimeTypes && crimeTypes.length > 0 ? (
@@ -212,7 +251,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="" disabled>Aucun type disponible</SelectItem>
+                    <SelectItem value="__none__" disabled>Aucun type disponible</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -232,7 +271,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                 <Label htmlFor="status">Statut *</Label>
                 <Select
                   onValueChange={value => setValue('status', value as CriminalStatus)}
-                  defaultValue={criminal?.status || 'arrested'}
+                  defaultValue={criminal?.status || 'ARRESTED'}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -258,6 +297,33 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                 <p className="text-sm text-destructive">{errors.arrestLocation.message}</p>
               )}
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="arrestingUnit">Unite d'intervention</Label>
+                <Input
+                  id="arrestingUnit"
+                  {...register('arrestingUnit')}
+                  placeholder="Brigade anti-criminalite"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="arrestingOfficer">Agent responsable</Label>
+                <Input id="arrestingOfficer" {...register('arrestingOfficer')} placeholder="Lt. M. Diallo" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warrantNumber">Numero de mandat</Label>
+              <Input id="warrantNumber" {...register('warrantNumber')} placeholder="MANDAT-2026-001" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="arrestationNotes">Observations d'arrestation</Label>
+              <Textarea
+                id="arrestationNotes"
+                {...register('arrestationNotes')}
+                placeholder="Contexte de l'interpellation, equipe engagee, resistance constatee..."
+                rows={3}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -268,9 +334,40 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           <CardContent>
             <Textarea
               {...register('notes')}
-              placeholder="Informations complémentaires sur le dossier..."
+              placeholder="Informations complementaires sur le dossier..."
               rows={4}
             />
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Pieces a conviction</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="evidenceTitle">Titre de la piece</Label>
+                <Input
+                  id="evidenceTitle"
+                  {...register('evidenceTitle')}
+                  placeholder="Ex: Arme saisie / Telephone / Document"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="evidenceFiles">Images de preuve</Label>
+                <Input id="evidenceFiles" name="evidenceFiles" type="file" accept="image/*" multiple />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="evidenceDescription">Description de la piece</Label>
+              <Textarea
+                id="evidenceDescription"
+                {...register('evidenceDescription')}
+                placeholder="Decrivez la piece, son contexte, le lieu et la date de saisie..."
+                rows={3}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -280,7 +377,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           Annuler
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isEditing ? 'Mettre à jour' : 'Enregistrer'}
+          {isEditing ? 'Mettre a jour' : 'Enregistrer'}
         </Button>
       </div>
     </form>

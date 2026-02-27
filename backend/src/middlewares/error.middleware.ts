@@ -42,6 +42,24 @@ export const errorHandler = (
     });
     return;
   }
+
+  // Erreur de upload (multer)
+  if (err.name === 'MulterError') {
+    res.status(400).json({
+      success: false,
+      message: 'Erreur lors de l upload du fichier',
+      error: err.message,
+    });
+    return;
+  }
+
+  if (err.message === 'Le fichier doit etre une image') {
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+    return;
+  }
   
   // Erreur générique
   res.status(500).json({

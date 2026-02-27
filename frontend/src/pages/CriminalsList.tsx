@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCriminals } from '@/contexts/CriminalsContext';
 import { CriminalsTable } from '@/components/criminals/CriminalsTable';
 import { CriminalCard } from '@/components/criminals/CriminalCard';
@@ -11,30 +11,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Plus, Search, LayoutGrid, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
 import { Criminal } from '@/types';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function CriminalsList() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { criminals, crimeTypes, deleteCriminal } = useCriminals();
+  const { criminals, crimeTypes } = useCriminals();
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [crimeTypeFilter, setCrimeTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>(isMobile ? 'grid' : 'table');
+
+  useEffect(() => {
+    if (isMobile) {
+      setViewMode('grid');
+    }
+  }, [isMobile]);
 
   const filteredCriminals = criminals.filter(criminal => {
     const matchesSearch =
@@ -51,39 +46,12 @@ export default function CriminalsList() {
     return matchesSearch && matchesCrimeType && matchesStatus;
   });
 
-  const handleDelete = (id: string) => {
-    // Ajout d'un petit délai pour éviter les conflits de rendu
-    setTimeout(() => {
-      setDeleteId(id);
-    }, 0);
-  };
-
-  const confirmDelete = async () => {
-    if (deleteId) {
-      try {
-        await deleteCriminal(deleteId);
-        toast({
-          title: 'Dossier supprimé',
-          description: 'Le dossier a été supprimé avec succès.',
-        });
-      } catch (error) {
-        toast({
-          title: 'Erreur',
-          description: 'Impossible de supprimer le dossier',
-          variant: 'destructive',
-        });
-      } finally {
-        setDeleteId(null);
-      }
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Liste des criminels</h1>
-          <p className="text-muted-foreground">{filteredCriminals.length} dossier(s) trouvé(s)</p>
+          <p className="text-muted-foreground">{filteredCriminals.length} dossier(s) trouve(s)</p>
         </div>
         <Button onClick={() => navigate('/criminals/new')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -95,7 +63,7 @@ export default function CriminalsList() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom ou numéro de dossier..."
+            placeholder="Rechercher par nom ou numero de dossier..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -114,7 +82,7 @@ export default function CriminalsList() {
                 </SelectItem>
               ))
             ) : (
-              <SelectItem value="" disabled>Aucun type disponible</SelectItem>
+              <SelectItem value="__none__" disabled>Aucun type disponible</SelectItem>
             )}
           </SelectContent>
         </Select>
@@ -122,14 +90,15 @@ export default function CriminalsList() {
           <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous</SelectItem>
-            <SelectItem value="arrested">Arrêté</SelectItem>
-            <SelectItem value="wanted">Recherché</SelectItem>
-            <SelectItem value="released">Libéré</SelectItem>
-            <SelectItem value="deceased">Décédé</SelectItem>
-          </SelectContent>
-        </Select>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              <SelectItem value="ARRESTED">Arrete</SelectItem>
+              <SelectItem value="ACTIVE">Recherche</SelectItem>
+              <SelectItem value="RELEASED">Libere</SelectItem>
+              <SelectItem value="DECEASED">Decede</SelectItem>
+              <SelectItem value="UNKNOWN">Inconnu</SelectItem>
+            </SelectContent>
+          </Select>
         <div className="flex border rounded-md">
           <Button
             variant={viewMode === 'table' ? 'secondary' : 'ghost'}
@@ -149,37 +118,20 @@ export default function CriminalsList() {
       </div>
 
       {viewMode === 'table' ? (
-        <CriminalsTable criminals={filteredCriminals} onDelete={handleDelete} />
+        <CriminalsTable criminals={filteredCriminals} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredCriminals.map(criminal => (
-            <CriminalCard key={criminal.id} criminal={criminal} onDelete={handleDelete} />
+            <CriminalCard key={criminal.id} criminal={criminal} />
           ))}
         </div>
       )}
 
       {filteredCriminals.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Aucun dossier trouvé</p>
+          <p className="text-muted-foreground">Aucun dossier trouve</p>
         </div>
       )}
-
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

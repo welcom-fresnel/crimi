@@ -40,13 +40,18 @@ export const createCriminalValidator = [
   
   body('status')
     .optional()
-    .isIn(['ACTIVE', 'ARRESTED', 'DECEASED', 'UNKNOWN'])
+    .isIn(['ACTIVE', 'ARRESTED', 'RELEASED', 'DECEASED', 'UNKNOWN'])
     .withMessage('Statut invalide'),
   
   body('dangerLevel')
     .optional()
     .isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
     .withMessage('Niveau de danger invalide'),
+
+  body('arrestation')
+    .optional()
+    .isObject()
+    .withMessage('Les informations d arrestation sont invalides'),
 ];
 
 export const updateCriminalValidator = [
@@ -80,12 +85,17 @@ export const updateCriminalValidator = [
   
   body('status')
     .optional()
-    .isIn(['ACTIVE', 'ARRESTED', 'DECEASED', 'UNKNOWN'])
+    .isIn(['ACTIVE', 'ARRESTED', 'RELEASED', 'DECEASED', 'UNKNOWN'])
     .withMessage('Statut invalide'),
   
   body('dangerLevel')
     .optional()
     .isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
     .withMessage('Niveau de danger invalide'),
+
+  body('arrestation')
+    .optional()
+    .isObject()
+    .withMessage('Les informations d arrestation sont invalides'),
 ];
 

@@ -26,18 +26,29 @@ set "IP=!IP: =!"
 echo IP detected: !IP!
 echo.
 
+set /p DB_PASSWORD=Enter PostgreSQL password for user postgres: 
+if "!DB_PASSWORD!"=="" (
+    echo ERROR: PostgreSQL password is required
+    exit /b 1
+)
+
+set /p JWT_SECRET=Enter JWT secret (leave blank to auto-generate): 
+if "!JWT_SECRET!"=="" (
+    for /f "delims=" %%S in ('powershell -NoProfile -Command "[Convert]::ToBase64String((1..48 ^| ForEach-Object {Get-Random -Minimum 0 -Maximum 256}))"') do set "JWT_SECRET=%%S"
+)
+
 REM Create backend .env
 echo Configuring backend/.env...
 (
     echo # Database Configuration
-    echo DATABASE_URL="postgresql://postgres:je ne sais pas@localhost:5432/securit_afrique_db?schema=public"
+    echo DATABASE_URL="postgresql://postgres:!DB_PASSWORD!@localhost:5432/securit_afrique_db?schema=public"
     echo.
     echo # Server Configuration
     echo PORT=5000
     echo NODE_ENV=development
     echo.
     echo # JWT Configuration
-    echo JWT_SECRET=securit_afrique_jwt_secret_key_2024_change_in_production
+    echo JWT_SECRET=!JWT_SECRET!
     echo JWT_EXPIRES_IN=24h
     echo.
     echo # CORS Configuration - Auto-Detected IP

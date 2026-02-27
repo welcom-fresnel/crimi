@@ -1,8 +1,7 @@
-import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CriminalsProvider } from '@/contexts/CriminalsContext';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -18,22 +17,24 @@ import SearchPage from './pages/SearchPage';
 import HistoryPage from './pages/HistoryPage';
 import NotFound from './pages/NotFound';
 
-// Configuration des flags futures React Router v7
-const routerConfig = {
-  future: {
-    v7_startTransition: true,
-    v7_relativeSplatPath: true,
-  },
-};
-
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+function ProtectedLayout() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return null;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  return <AppLayout>{children}</AppLayout>;
+
+  return (
+    <AppLayout>
+      <Outlet />
+    </AppLayout>
+  );
 }
 
 function AppRoutes() {
@@ -41,83 +42,35 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/criminals"
-        element={
-          <ProtectedRoute>
-            <CriminalsList />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/criminals/new"
-        element={
-          <ProtectedRoute>
-            <CriminalNew />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/criminals/:id"
-        element={
-          <ProtectedRoute>
-            <CriminalDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/criminals/:id/edit"
-        element={
-          <ProtectedRoute>
-            <CriminalEdit />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/search"
-        element={
-          <ProtectedRoute>
-            <SearchPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/history"
-        element={
-          <ProtectedRoute>
-            <HistoryPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route element={<ProtectedLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/criminals" element={<CriminalsList />} />
+        <Route path="/criminals/new" element={<CriminalNew />} />
+        <Route path="/criminals/:id" element={<CriminalDetail />} />
+        <Route path="/criminals/:id/edit" element={<CriminalEdit />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/history" element={<HistoryPage />} />
+      </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
 
 const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter {...routerConfig}>
-          <AuthProvider>
-            <CriminalsProvider>
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
+          <CriminalsProvider>
+            <ErrorBoundary>
               <AppRoutes />
-            </CriminalsProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
+            </ErrorBoundary>
+          </CriminalsProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
 );
 
 export default App;

@@ -95,11 +95,45 @@ All colors MUST be HSL.
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   * {
     @apply border-border;
   }
 
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.84)),
+      url('/assets/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image:
+      linear-gradient(rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.82)),
+      url('/assets/background.jpg');
+  }
+
+  @media (max-width: 767px) {
+    body {
+      background-attachment: scroll;
+    }
   }
 }

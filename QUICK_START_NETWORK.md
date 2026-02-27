@@ -261,3 +261,25 @@ Maintenant tu peux :
 ✅ **Multi-Postes** sans problèmes de configuration  
 
 **Bonne utilisation !** 🚀
+
+---
+
+## Notes metier et securite (2026-02-27)
+
+Nouveautes prises en charge:
+- Fiche arrestation detaillee dans le dossier criminel
+- Pieces a conviction (description + images)
+- Statut `RELEASED` (libere)
+
+Regle metier importante:
+- la suppression de criminel n'est plus disponible dans l'interface ni dans l'API
+- pour corriger un dossier, utiliser `Modifier` et/ou changer le statut
+
+Apres mise a jour du code backend:
+
+```powershell
+cd backend
+npx prisma migrate dev
+npm run prisma:generate
+npm run dev
+```

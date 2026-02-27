@@ -551,3 +551,32 @@ Get-Content "C:\Program Files\PostgreSQL\18\data\log\postgresql-*.log" | Select-
 ```
 
 **Bonne migration !** 🚀
+
+---
+
+## Mise a jour applicative (2026-02-27)
+
+Les versions recentes du logiciel ajoutent de nouvelles donnees metier:
+- table `evidences` (pieces a conviction avec images)
+- table `arrestations` (details d'interpellation)
+- statut criminel `RELEASED` (libere)
+
+Apres restauration d'un dump SQL ancien, executer aussi les migrations Prisma:
+
+```cmd
+cd backend
+npx prisma migrate deploy
+npx prisma generate
+```
+
+Verifications recommandees:
+
+```cmd
+psql -U postgres -d securit_afrique_db -c "\\dt evidences"
+psql -U postgres -d securit_afrique_db -c "\\dt arrestations"
+psql -U postgres -d securit_afrique_db -c "SELECT status, COUNT(*) FROM criminals GROUP BY status ORDER BY status;"
+```
+
+Important:
+- la suppression de criminel est desactivee dans l'API (politique de conservation des dossiers)
+- privilegier les changements de statut (`ARRESTED`, `ACTIVE`, `RELEASED`, `DECEASED`, `UNKNOWN`)

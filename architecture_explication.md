@@ -124,3 +124,16 @@ C'est exactement comme ça que fonctionnent les grands systèmes comme :
 - Les hôpitaux (tous les médecins partagent les mêmes dossiers patients)
 
 **Tu as construit quelque chose de très professionnel !** 🎉
+
+---
+
+## Mise a jour architecture (2026-02-27)
+
+Evolutions du modele de dossier criminel:
+- ajout de la relation `Criminal -> Arrestation` (date, lieu, unite, agent, mandat, notes)
+- ajout de la relation `Criminal -> Evidence[]` (pieces a conviction, images)
+- ajout du statut `RELEASED` pour distinguer les personnes liberees du statut `UNKNOWN`
+
+Contrainte de conformite:
+- suppression logique/metier: la suppression d'un criminel est interdite dans le flux applicatif
+- conservation des dossiers pour audit et tracabilite

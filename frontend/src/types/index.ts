@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'agent';
 
-export type CriminalStatus = 'arrested' | 'wanted' | 'released' | 'deceased';
+export type CriminalStatus = 'ARRESTED' | 'ACTIVE' | 'RELEASED' | 'DECEASED' | 'UNKNOWN';
 
 export interface User {
   id: string;
@@ -17,10 +17,33 @@ export interface CrimeType {
   description?: string;
 }
 
+export interface Evidence {
+  id: string;
+  title?: string;
+  description?: string;
+  fileUrls: string[];
+  createdAt: string;
+  createdBy?: {
+    username?: string;
+  };
+}
+
+export interface Arrestation {
+  id: string;
+  arrestDate?: string;
+  arrestLocation?: string;
+  arrestingUnit?: string;
+  arrestingOfficer?: string;
+  warrantNumber?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Criminal {
   id: string;
   caseNumber: string; // Backend utilise caseNumber
-  fileNumber?: string; // Ancien nom, gardé pour compatibilité
+  fileNumber?: string; // Ancien nom, garde pour compatibilite
   firstName: string;
   lastName: string;
   alias?: string;
@@ -35,13 +58,15 @@ export interface Criminal {
   crimeDate?: string;
   arrestLocation?: string;
   crimeLocation?: string;
-  status: CriminalStatus | string; // Peut être ACTIVE, ARRESTED, etc.
+  status: CriminalStatus;
   dangerLevel?: string;
   notes?: string;
   description?: string;
   createdBy?: string;
   createdAt: string;
   updatedAt?: string;
+  evidences?: Evidence[];
+  arrestation?: Arrestation;
 }
 
 export interface AuditLog {
@@ -59,6 +84,6 @@ export interface DashboardStats {
   totalCriminals: number;
   arrestedCount: number;
   wantedCount: number;
-  releasedCount: number;
+  deceasedCount: number;
   recentActivity: AuditLog[];
 }

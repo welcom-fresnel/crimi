@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCriminals } from '@/contexts/CriminalsContext';
 import { CriminalsTable } from '@/components/criminals/CriminalsTable';
+import { CriminalCard } from '@/components/criminals/CriminalCard';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -14,9 +15,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, RotateCcw } from 'lucide-react';
 import { Criminal } from '@/types';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function SearchPage() {
   const { criminals, crimeTypes } = useCriminals();
+  const isMobile = useIsMobile();
   const [searchName, setSearchName] = useState('');
   const [searchFileNumber, setSearchFileNumber] = useState('');
   const [searchCrimeType, setSearchCrimeType] = useState<string>('all');
@@ -108,7 +111,7 @@ export default function SearchPage() {
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="" disabled>Aucun type disponible</SelectItem>
+                    <SelectItem value="__none__" disabled>Aucun type disponible</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -121,10 +124,11 @@ export default function SearchPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="arrested">Arrêté</SelectItem>
-                  <SelectItem value="wanted">Recherché</SelectItem>
-                  <SelectItem value="released">Libéré</SelectItem>
-                  <SelectItem value="deceased">Décédé</SelectItem>
+                  <SelectItem value="ARRESTED">Arrete</SelectItem>
+                  <SelectItem value="ACTIVE">Recherche</SelectItem>
+                  <SelectItem value="RELEASED">Libere</SelectItem>
+                  <SelectItem value="DECEASED">Decede</SelectItem>
+                  <SelectItem value="UNKNOWN">Inconnu</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -148,7 +152,15 @@ export default function SearchPage() {
             Résultats ({results.length} dossier{results.length > 1 ? 's' : ''} trouvé{results.length > 1 ? 's' : ''})
           </h2>
           {results.length > 0 ? (
-            <CriminalsTable criminals={results} />
+            isMobile ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {results.map((criminal) => (
+                  <CriminalCard key={criminal.id} criminal={criminal} />
+                ))}
+              </div>
+            ) : (
+              <CriminalsTable criminals={results} />
+            )
           ) : (
             <Card className="glass-card">
               <CardContent className="py-12 text-center">
@@ -161,3 +173,4 @@ export default function SearchPage() {
     </div>
   );
 }
+

@@ -1,22 +1,74 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { criminalsAPI, crimeTypesAPI, auditAPI } from '../services/api';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { AxiosError } from 'axios';
+import { auditAPI, criminalsAPI, crimeTypesAPI } from '../services/api';
 import { socketService } from '../services/socket.service';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { Criminal, CrimeType } from '../types';
 
+type CriminalPayload = Partial<Criminal> & {
+  id: string;
+  caseNumber: string;
+};
+
+type CriminalMutationPayload = {
+  caseNumber: string;
+  firstName: string;
+  lastName: string;
+  crimeTypeId: string;
+  description: string;
+  alias?: string;
+  dateOfBirth?: string;
+  placeOfBirth?: string;
+  nationality?: string;
+  gender?: string;
+  crimeDate?: string;
+  crimeLocation?: string;
+  status?: string;
+  dangerLevel?: string;
+  lastKnownAddress?: string;
+  phoneNumber?: string;
+  arrestation?: {
+    arrestDate?: string;
+    arrestLocation?: string;
+    arrestingUnit?: string;
+    arrestingOfficer?: string;
+    warrantNumber?: string;
+    notes?: string;
+  };
+};
+
+type CriminalSearchParams = Record<string, string>;
+
+interface ApiErrorPayload {
+  message?: string;
+}
+
+interface AuditLogItem {
+  id: string;
+  action?: string;
+  createdAt?: string;
+  timestamp?: string;
+  userName?: string;
+  user?: {
+    username?: string;
+  };
+  criminalName?: string;
+  entityId?: string;
+  changes?: Record<string, unknown> | null;
+}
+
 interface CriminalsContextType {
   criminals: Criminal[];
   crimeTypes: CrimeType[];
-  auditLogs: any[]; // Logs d'audit (simplifié pour l'instant)
+  auditLogs: AuditLogItem[];
   isLoading: boolean;
   fetchCriminals: () => Promise<void>;
   fetchCrimeTypes: () => Promise<void>;
-  addCriminal: (data: any) => Promise<any>;
-  updateCriminal: (id: string, data: any) => Promise<void>;
-  upsertCriminal: (criminal: any) => void;
-  deleteCriminal: (id: string) => Promise<void>;
-  searchCriminals: (params: any) => Promise<void>;
+  addCriminal: (data: CriminalMutationPayload) => Promise<Criminal | null>;
+  updateCriminal: (id: string, data: Partial<CriminalMutationPayload>) => Promise<void>;
+  upsertCriminal: (criminal: CriminalPayload) => void;
+  searchCriminals: (params: CriminalSearchParams) => Promise<void>;
 }
 
 const CriminalsContext = createContext<CriminalsContextType | undefined>(undefined);
@@ -24,94 +76,114 @@ const CriminalsContext = createContext<CriminalsContextType | undefined>(undefin
 export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [criminals, setCriminals] = useState<Criminal[]>([]);
   const [crimeTypes, setCrimeTypes] = useState<CrimeType[]>([]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { isAuthenticated } = useAuth();
 
-  // Configuration des listeners temps réel
-  const setupRealtimeListeners = () => {
-    // Criminel créé
-    socketService.onCriminalCreated((data) => {
-      console.log('🆕 Nouveau criminel reçu:', data.criminal);
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof AxiosError<ApiErrorPayload>) {
+      return error.response?.data?.message || error.message || fallback;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return fallback;
+  };
 
-      const mapped = mapCriminal(data.criminal);
-      // Vérifier si le criminel n'existe pas déjà (éviter les doublons)
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+  const mapCriminal = (criminal: CriminalPayload): Criminal => {
+    const toAbsoluteUrl = (value?: string) => {
+      if (!value) return value;
+      if (value.startsWith('http://') || value.startsWith('https://')) return value;
+      return `${apiBase}${value}`;
+    };
+
+    const photoPath = criminal.photo || criminal.photoUrl || null;
+    const photoUrl = photoPath ? toAbsoluteUrl(photoPath) : undefined;
+    const evidences = (criminal.evidences || []).map((evidence) => ({
+      ...evidence,
+      fileUrls: (evidence.fileUrls || []).map((url) => toAbsoluteUrl(url) || url),
+    }));
+
+    return {
+      ...criminal,
+      photoUrl,
+      evidences,
+    } as Criminal;
+  };
+
+  const upsertCriminal = (criminal: CriminalPayload) => {
+    const mapped = mapCriminal(criminal);
+    setCriminals((prev) => {
+      const exists = prev.some((item) => item.id === mapped.id);
+      if (exists) {
+        return prev.map((item) => (item.id === mapped.id ? mapped : item));
+      }
+      return [mapped, ...prev];
+    });
+  };
+
+  const setupRealtimeListeners = () => {
+    socketService.onCriminalCreated((data) => {
+      const received = data.criminal as CriminalPayload | undefined;
+      if (!received) return;
+
+      const mapped = mapCriminal(received);
       setCriminals((prev) => {
-        const exists = prev.some(c => c.id === mapped.id);
-        if (exists) {
-          return prev;
-        }
+        const exists = prev.some((item) => item.id === mapped.id);
+        if (exists) return prev;
         return [mapped, ...prev];
       });
-      
-      toast.info('Nouveau criminel enregistré', {
-        description: `Dossier ${data.criminal.caseNumber} créé par ${data.createdBy?.username || 'Système'}`,
+
+      toast.info('Nouveau criminel enregistre', {
+        description: `Dossier ${received.caseNumber} cree par ${data.createdBy?.username || 'Systeme'}`,
       });
     });
 
-    // Criminel mis à jour
     socketService.onCriminalUpdated((data) => {
-      console.log('✏️ Criminel mis à jour:', data.criminal);
+      const received = data.criminal as CriminalPayload | undefined;
+      if (!received) return;
 
-      const mapped = mapCriminal(data.criminal);
-      setCriminals((prev) => prev.map((c) => (c.id === mapped.id ? mapped : c)));
-      
-      toast.warning('Dossier mis à jour', {
-        description: `Le dossier ${data.criminal.caseNumber} a été modifié`,
+      const mapped = mapCriminal(received);
+      setCriminals((prev) => prev.map((item) => (item.id === mapped.id ? mapped : item)));
+
+      toast.warning('Dossier mis a jour', {
+        description: `Le dossier ${received.caseNumber} a ete modifie`,
       });
     });
 
-    // Criminel supprimé
     socketService.onCriminalDeleted((data) => {
-      console.log('🗑️ Criminel supprimé:', data.criminalId);
+      if (!data.criminalId) return;
 
-      setCriminals((prev) => prev.filter((c) => c.id !== data.criminalId));
-      
-      toast.error('Dossier supprimé', {
-        description: `Le dossier ${data.caseNumber} a été supprimé`,
+      setCriminals((prev) => prev.filter((item) => item.id !== data.criminalId));
+
+      toast.error('Dossier supprime', {
+        description: `Le dossier ${data.caseNumber || ''} a ete supprime`,
       });
     });
 
-    // Notifications génériques
     socketService.onNotification((notification) => {
-      console.log('📢 Notification:', notification);
-      
-      const toastType = notification.type === 'error' ? 'error' : 
-                       notification.type === 'warning' ? 'warning' :
-                       notification.type === 'success' ? 'success' : 'info';
-      
-      toast[toastType](notification.title, {
+      const toastType =
+        notification.type === 'error'
+          ? 'error'
+          : notification.type === 'warning'
+            ? 'warning'
+            : notification.type === 'success'
+              ? 'success'
+              : 'info';
+
+      toast[toastType](notification.title || 'Notification', {
         description: notification.message,
       });
     });
   };
 
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-
-  const mapCriminal = (c: any) => {
-    const photoPath = c.photo || c.photoUrl || null;
-    const photoUrl = photoPath ? `${apiBase}${photoPath}` : undefined;
-    return {
-      ...c,
-      photoUrl,
-    } as any;
-  };
-
-  const upsertCriminal = (c: any) => {
-    const mapped = mapCriminal(c);
-    setCriminals((prev) => {
-      const exists = prev.some((p) => p.id === mapped.id);
-      if (exists) return prev.map((p) => (p.id === mapped.id ? mapped : p));
-      return [mapped, ...prev];
-    });
-  };
-
-  // Charger les criminels et types de crimes au démarrage
   useEffect(() => {
     if (isAuthenticated) {
-      fetchCriminals();
-      fetchCrimeTypes();
-      fetchAuditLogs();
+      void fetchCriminals();
+      void fetchCrimeTypes();
+      void fetchAuditLogs();
       setupRealtimeListeners();
     }
 
@@ -124,14 +196,13 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-  // Récupérer les criminels
   const fetchCriminals = async () => {
     try {
       setIsLoading(true);
       const response = await criminalsAPI.getAll(1, 100);
 
       if (response.success) {
-        const mapped = response.data.map((c: any) => mapCriminal(c));
+        const mapped = response.data.map((criminal) => mapCriminal(criminal as CriminalPayload));
         setCriminals(mapped);
       }
     } catch (error) {
@@ -144,11 +215,9 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Récupérer les types de crimes
   const fetchCrimeTypes = async () => {
     try {
       const response = await crimeTypesAPI.getAll();
-      
       if (response.success) {
         setCrimeTypes(response.data);
       }
@@ -160,37 +229,34 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Récupérer les logs d'audit
   const fetchAuditLogs = async () => {
     try {
       const response = await auditAPI.getAll(1, 100);
-      
       if (response.success) {
-        setAuditLogs(response.data || []);
+        setAuditLogs((response.data || []) as AuditLogItem[]);
       }
     } catch (error) {
-      console.error('Erreur de chargement des logs d\'audit:', error);
-      // Ne pas afficher d'erreur toast pour les logs d'audit (optionnel)
+      console.error("Erreur de chargement des logs d'audit:", error);
     }
   };
 
-  // Ajouter un criminel
-  const addCriminal = async (data: any) => {
+  const addCriminal = async (data: CriminalMutationPayload): Promise<Criminal | null> => {
     try {
       setIsLoading(true);
       const response = await criminalsAPI.create(data);
-      
+
       if (response.success) {
-        // Pas besoin d'ajouter manuellement, le WebSocket le fera
-        toast.success('Criminel créé', {
-          description: `Dossier ${response.data.caseNumber} créé avec succès`,
+        toast.success('Criminel cree', {
+          description: `Dossier ${response.data.caseNumber} cree avec succes`,
         });
-        return response;
+        return response.data;
       }
-    } catch (error: any) {
-      console.error('Erreur de création:', error);
+
+      return null;
+    } catch (error: unknown) {
+      console.error('Erreur de creation:', error);
       toast.error('Erreur', {
-        description: error.response?.data?.message || 'Impossible de créer le criminel',
+        description: getErrorMessage(error, 'Impossible de creer le criminel'),
       });
       throw error;
     } finally {
@@ -198,21 +264,20 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Mettre à jour un criminel
-  const updateCriminal = async (id: string, data: any) => {
+  const updateCriminal = async (id: string, data: Partial<CriminalMutationPayload>) => {
     try {
       setIsLoading(true);
       const response = await criminalsAPI.update(id, data);
-      
+
       if (response.success) {
-        toast.success('Criminel mis à jour', {
-          description: 'Les modifications ont été enregistrées',
+        toast.success('Criminel mis a jour', {
+          description: 'Les modifications ont ete enregistrees',
         });
       }
-    } catch (error: any) {
-      console.error('Erreur de mise à jour:', error);
+    } catch (error: unknown) {
+      console.error('Erreur de mise a jour:', error);
       toast.error('Erreur', {
-        description: error.response?.data?.message || 'Impossible de modifier le criminel',
+        description: getErrorMessage(error, 'Impossible de modifier le criminel'),
       });
       throw error;
     } finally {
@@ -220,36 +285,13 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Supprimer un criminel
-  const deleteCriminal = async (id: string) => {
-    try {
-      setIsLoading(true);
-      const response = await criminalsAPI.delete(id);
-      
-      if (response.success) {
-        toast.success('Criminel supprimé', {
-          description: 'Le dossier a été supprimé',
-        });
-      }
-    } catch (error: any) {
-      console.error('Erreur de suppression:', error);
-      toast.error('Erreur', {
-        description: error.response?.data?.message || 'Impossible de supprimer le criminel',
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Rechercher des criminels
-  const searchCriminals = async (params: any) => {
+  const searchCriminals = async (params: CriminalSearchParams) => {
     try {
       setIsLoading(true);
       const response = await criminalsAPI.search(params);
-      
+
       if (response.success) {
-        setCriminals(response.data);
+        setCriminals(response.data as Criminal[]);
       }
     } catch (error) {
       console.error('Erreur de recherche:', error);
@@ -273,7 +315,6 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         addCriminal,
         updateCriminal,
         upsertCriminal,
-        deleteCriminal,
         searchCriminals,
       }}
     >
@@ -285,7 +326,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 export const useCriminals = () => {
   const context = useContext(CriminalsContext);
   if (!context) {
-    throw new Error('useCriminals doit être utilisé dans un CriminalsProvider');
+    throw new Error('useCriminals doit etre utilise dans un CriminalsProvider');
   }
   return context;
 };

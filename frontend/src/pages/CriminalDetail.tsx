@@ -10,16 +10,31 @@ import { fr } from 'date-fns/locale';
 export default function CriminalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { criminals } = useCriminals();
+  const { criminals, isLoading } = useCriminals();
 
-  const criminal = criminals.find(c => c.id === id);
+  const criminal = criminals.find((c) => c.id === id);
+
+  const formatDate = (value?: string) => {
+    if (!value) return 'Non renseignee';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Non renseignee';
+    return format(date, 'd MMMM yyyy', { locale: fr });
+  };
+
+  if (!criminal && isLoading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Chargement du dossier...</p>
+      </div>
+    );
+  }
 
   if (!criminal) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Dossier non trouvé</p>
+        <p className="text-muted-foreground">Dossier non trouve</p>
         <Button variant="link" onClick={() => navigate('/criminals')}>
-          Retour à la liste
+          Retour a la liste
         </Button>
       </div>
     );
@@ -27,21 +42,23 @@ export default function CriminalDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/criminals')}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <Button variant="ghost" size="icon" className="self-start" onClick={() => navigate('/criminals')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground break-words">
             {criminal.lastName} {criminal.firstName}
           </h1>
-          <p className="text-muted-foreground">{criminal.caseNumber || criminal.fileNumber}</p>
+          <p className="text-muted-foreground break-all">{criminal.caseNumber || criminal.fileNumber}</p>
         </div>
-        <StatusBadge status={criminal.status} />
-        <Button onClick={() => navigate(`/criminals/${id}/edit`)}>
-          <Pencil className="h-4 w-4 mr-2" />
-          Modifier
-        </Button>
+        <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2">
+          <StatusBadge status={criminal.status} />
+          <Button onClick={() => navigate(`/criminals/${id}/edit`)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Modifier
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -67,7 +84,7 @@ export default function CriminalDetail() {
                 <h2 className="text-xl font-semibold">
                   {criminal.lastName} {criminal.firstName}
                 </h2>
-                <p className="text-sm text-muted-foreground">{criminal.nationality || 'Nationalité inconnue'}</p>
+                <p className="text-sm text-muted-foreground">{criminal.nationality || 'Nationalite inconnue'}</p>
               </div>
             </CardContent>
           </Card>
@@ -91,18 +108,14 @@ export default function CriminalDetail() {
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">Date de naissance</dt>
-                  <dd className="font-medium">
-                    {(criminal.birthDate || criminal.dateOfBirth)
-                      ? format(new Date(criminal.birthDate || criminal.dateOfBirth!), 'd MMMM yyyy', { locale: fr })
-                      : 'Non renseignée'}
-                  </dd>
+                  <dd className="font-medium">{formatDate(criminal.birthDate || criminal.dateOfBirth)}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-muted-foreground">Nationalité</dt>
-                  <dd className="font-medium">{criminal.nationality || 'Non renseignée'}</dd>
+                  <dt className="text-sm text-muted-foreground">Nationalite</dt>
+                  <dd className="font-medium">{criminal.nationality || 'Non renseignee'}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-muted-foreground">N° Dossier</dt>
+                  <dt className="text-sm text-muted-foreground">N deg Dossier</dt>
                   <dd className="font-medium">{criminal.caseNumber || criminal.fileNumber}</dd>
                 </div>
               </dl>
@@ -120,7 +133,7 @@ export default function CriminalDetail() {
               <dl className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <dt className="text-sm text-muted-foreground">Type de crime</dt>
-                  <dd className="font-medium">{criminal.crimeType.name}</dd>
+                  <dd className="font-medium">{criminal.crimeType?.name || 'Type inconnu'}</dd>
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">Statut actuel</dt>
@@ -133,9 +146,9 @@ export default function CriminalDetail() {
                   <div>
                     <dt className="text-sm text-muted-foreground">Date d'arrestation</dt>
                     <dd className="font-medium">
-                      {(criminal.arrestDate || criminal.crimeDate)
-                      ? format(new Date(criminal.arrestDate || criminal.crimeDate!), 'd MMMM yyyy', { locale: fr })
-                      : 'Non renseignée'}
+                      {formatDate(
+                        criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate,
+                      )}
                     </dd>
                   </div>
                 </div>
@@ -143,12 +156,40 @@ export default function CriminalDetail() {
                   <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
                     <dt className="text-sm text-muted-foreground">Lieu d'arrestation</dt>
-                    <dd className="font-medium">{criminal.arrestLocation || criminal.crimeLocation || 'Non renseigné'}</dd>
+                    <dd className="font-medium">
+                      {criminal.arrestation?.arrestLocation ||
+                        criminal.arrestLocation ||
+                        criminal.crimeLocation ||
+                        'Non renseigne'}
+                    </dd>
                   </div>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Unite d'intervention</dt>
+                  <dd className="font-medium">{criminal.arrestation?.arrestingUnit || 'Non renseignee'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Agent responsable</dt>
+                  <dd className="font-medium">{criminal.arrestation?.arrestingOfficer || 'Non renseigne'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Numero de mandat</dt>
+                  <dd className="font-medium">{criminal.arrestation?.warrantNumber || 'Non renseigne'}</dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
+
+          {criminal.arrestation?.notes && (
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-lg">Observations d'arrestation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground whitespace-pre-wrap">{criminal.arrestation.notes}</p>
+              </CardContent>
+            </Card>
+          )}
 
           {criminal.notes && (
             <Card className="glass-card">
@@ -161,23 +202,56 @@ export default function CriminalDetail() {
             </Card>
           )}
 
+          {criminal.evidences && criminal.evidences.length > 0 && (
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-lg">Pieces a conviction</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {criminal.evidences.map((evidence) => (
+                  <div key={evidence.id} className="space-y-3 border-b pb-4 last:border-0 last:pb-0">
+                    <div className="space-y-1">
+                      <p className="font-medium">{evidence.title || 'Piece sans titre'}</p>
+                      {evidence.description && (
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{evidence.description}</p>
+                      )}
+                    </div>
+                    {evidence.fileUrls && evidence.fileUrls.length > 0 && (
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {evidence.fileUrls.map((fileUrl) => (
+                          <a key={fileUrl} href={fileUrl} target="_blank" rel="noreferrer" className="block">
+                            <img
+                              src={fileUrl}
+                              alt="Piece a conviction"
+                              className="h-40 w-full rounded-md border object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle className="text-lg">Métadonnées</CardTitle>
+              <CardTitle className="text-lg">Metadonnees</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-sm text-muted-foreground">Créé le</dt>
+                  <dt className="text-sm text-muted-foreground">Cree le</dt>
                   <dd className="font-medium">
-                    {format(new Date(criminal.createdAt), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                    {format(new Date(criminal.createdAt), "d MMMM yyyy 'a' HH:mm", { locale: fr })}
                   </dd>
                 </div>
                 {criminal.updatedAt && (
                   <div>
-                    <dt className="text-sm text-muted-foreground">Dernière modification</dt>
+                    <dt className="text-sm text-muted-foreground">Derniere modification</dt>
                     <dd className="font-medium">
-                      {format(new Date(criminal.updatedAt), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                      {format(new Date(criminal.updatedAt), "d MMMM yyyy 'a' HH:mm", { locale: fr })}
                     </dd>
                   </div>
                 )}

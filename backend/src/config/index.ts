@@ -16,7 +16,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   
   // Configuration CORS
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8080',
   
   // Configuration base de données
   databaseUrl: process.env.DATABASE_URL,
@@ -24,6 +24,18 @@ export const config = {
   // Pagination par défaut
   defaultPageSize: 10,
   maxPageSize: 100,
+};
+
+export const getCorsOrigins = (): string[] => {
+  const configuredOrigins = config.corsOrigin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  // Always allow common local dev frontends in addition to configured network IPs.
+  const defaultDevOrigins = ['http://localhost:8080', 'http://127.0.0.1:8080'];
+
+  return Array.from(new Set([...defaultDevOrigins, ...configuredOrigins]));
 };
 
 // Validation de la configuration

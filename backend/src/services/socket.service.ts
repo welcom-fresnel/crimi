@@ -6,7 +6,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
-import { config } from '../config';
+import { config, getCorsOrigins } from '../config';
 import { 
   AuthenticatedSocket, 
   SocketEvent, 
@@ -32,7 +32,7 @@ class SocketService {
   initialize(httpServer: HTTPServer): SocketIOServer {
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: config.corsOrigin,
+        origin: getCorsOrigins(),
         credentials: true,
         methods: ['GET', 'POST'],
       },
