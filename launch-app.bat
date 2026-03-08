@@ -25,6 +25,43 @@ if not exist "frontend\.env" (
     exit /b 1
 )
 
+REM Detect current local IP
+for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /i "IPv4"') do (
+    set "CURRENT_IP=%%A"
+    goto :found_current_ip
+)
+
+echo ERROR: Cannot determine current IP address
+pause
+exit /b 1
+
+:found_current_ip
+set "CURRENT_IP=!CURRENT_IP: =!"
+
+REM Extract configured IP from backend .env
+for /f "tokens=2 delims==" %%A in ('findstr /b "BACKEND_IP=" backend\.env') do (
+    set "CONFIG_IP=%%A"
+)
+
+if not "!CURRENT_IP!"=="!CONFIG_IP!" (
+    echo.
+    echo WARNING: Network change detected
+    echo Current IP   : !CURRENT_IP!
+    echo Configured IP: !CONFIG_IP!
+    echo.
+    choice /C YN /M "Run setup-network.bat now to regenerate .env files?"
+    if !errorlevel! equ 1 (
+        call setup-network.bat
+        if !errorlevel! neq 0 (
+            echo ERROR: setup-network.bat failed
+            pause
+            exit /b 1
+        )
+    ) else (
+        echo Continuing with existing configuration...
+    )
+)
+
 echo Configuration found. Starting services...
 echo.
 

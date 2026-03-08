@@ -108,7 +108,9 @@ export default function Dashboard() {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <span className="text-xs font-medium text-primary">{criminal.caseNumber.slice(-2)}</span>
+                            <span className="text-xs font-medium text-primary">
+                              {(criminal.caseNumber || criminal.fileNumber || 'NA').slice(-2)}
+                            </span>
                           )}
                         </div>
                       );

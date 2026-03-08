@@ -6,9 +6,17 @@ import { Button } from '@/components/ui/button';
 export default function CriminalEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { criminals } = useCriminals();
+  const { criminals, isLoading } = useCriminals();
 
   const criminal = criminals.find(c => c.id === id);
+
+  if (!criminal && isLoading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Chargement du dossier...</p>
+      </div>
+    );
+  }
 
   if (!criminal) {
     return (

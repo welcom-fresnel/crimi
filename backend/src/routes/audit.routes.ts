@@ -22,6 +22,11 @@ router.get(
   auditController.getAllAuditLogs
 );
 
+router.get(
+  '/me',
+  auditController.getMyAuditLogs
+);
+
 /**
  * @route   GET /api/audit/:id
  * @desc    Obtenir un journal d'audit par ID

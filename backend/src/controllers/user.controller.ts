@@ -8,6 +8,22 @@ import { userService } from '../services/user.service';
 
 class UserController {
   /**
+   * Obtenir les roles disponibles
+   */
+  async getRoles(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const roles = await userService.getRoles();
+
+      res.status(200).json({
+        success: true,
+        data: roles,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Obtenir tous les utilisateurs
    */
   async getAllUsers(req: AuthRequest, res: Response, next: NextFunction) {

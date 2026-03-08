@@ -1,6 +1,17 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
+const resolveSocketUrl = () => {
+  const configured = import.meta.env.VITE_WS_URL as string | undefined;
+  if (configured && configured.trim().length > 0) {
+    return configured;
+  }
+
+  const backendIp = import.meta.env.VITE_BACKEND_IP as string | undefined;
+  const host = backendIp || window.location.hostname || '127.0.0.1';
+  return `http://${host}:5000`;
+};
+
+const SOCKET_URL = resolveSocketUrl();
 
 type SocketListener = (...args: unknown[]) => void;
 

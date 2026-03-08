@@ -15,6 +15,8 @@ import CriminalNew from './pages/CriminalNew';
 import CriminalEdit from './pages/CriminalEdit';
 import SearchPage from './pages/SearchPage';
 import HistoryPage from './pages/HistoryPage';
+import AdminUsers from './pages/AdminUsers';
+import ProfilePage from './pages/ProfilePage';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -37,6 +39,21 @@ function ProtectedLayout() {
   );
 }
 
+function AdminOnlyLayout() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return null;
+  }
+
+  const isAdmin = user?.roles?.includes('ADMIN');
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Outlet />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -49,7 +66,11 @@ function AppRoutes() {
         <Route path="/criminals/:id" element={<CriminalDetail />} />
         <Route path="/criminals/:id/edit" element={<CriminalEdit />} />
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/history" element={<HistoryPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route element={<AdminOnlyLayout />}>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+        </Route>
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

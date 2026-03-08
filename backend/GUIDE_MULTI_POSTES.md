@@ -891,3 +891,100 @@ Ce guide vous permet de :
 **Dernière mise à jour :** 2024-01-09  
 **Version :** 1.0.0
 
+
+---
+
+## Mise a jour critique (2026-02-27) - A appliquer en priorite
+
+Ce bloc corrige les points devenus faux ou incomplets dans le guide initial.
+
+### 1) URL frontend -> backend
+
+Utiliser:
+- `VITE_API_URL=http://<IP_BACKEND>:<PORT_BACKEND>/api`
+- `VITE_WS_URL=http://<IP_BACKEND>:<PORT_BACKEND>`
+
+Exemple:
+```env
+VITE_API_URL=http://192.168.1.100:5001/api
+VITE_WS_URL=http://192.168.1.100:5001
+```
+
+Important: `VITE_API_URL` doit contenir `/api`.
+
+### 2) Nom de base de donnees
+
+Le projet courant utilise `securit_afrique_db`.
+
+Exemple recommande:
+```env
+DATABASE_URL=postgresql://postgres:<mot_de_passe>@<IP_SERVEUR_DB>:5432/securit_afrique_db?schema=public
+```
+
+### 3) Migrations Prisma en multi-postes
+
+- Poste principal (ou serveur central):
+  - `npm run prisma:migrate`
+  - `npm run prisma:generate`
+- Postes secondaires:
+  - `npm run prisma:generate`
+
+Ne pas relancer `prisma:seed` sur les postes secondaires.
+
+### 4) Suppression de criminel
+
+La suppression de dossier criminel est desactivee dans l'API actuelle.
+
+Donc:
+- la route `DELETE /api/criminals/:id` n'est plus exposee,
+- l'evenement WebSocket `criminal:deleted` n'est plus un flux metier actif.
+
+### 5) Nouvelles structures de donnees
+
+La base inclut maintenant:
+- `arrestations` (1 fiche max par criminel),
+- `evidences` (0..N pieces a conviction par criminel).
+
+Le guide de deploiement doit verifier que les migrations correspondantes sont appliquees.
+
+### 6) Statuts criminels
+
+Statuts metier actuels:
+- `ACTIVE`, `ARRESTED`, `RELEASED`, `DECEASED`, `UNKNOWN`
+
+`RELEASED` (libere) est desormais distinct de `UNKNOWN`.
+
+### 7) Endpoint socket stats
+
+`GET /api/socket/stats` est protege (auth + permission).
+Un `curl` sans token renverra une erreur 401/403.
+
+### 8) Ports en multi-postes
+
+- Postes sur des machines differentes: vous pouvez garder `5000/8080` sur chaque machine.
+- Plusieurs postes sur la meme machine: ports obligatoirement differents (`5000/8080`, `5001/8081`, etc.).
+
+---
+
+## Exemple .env valide (poste secondaire)
+
+### backend/.env
+```env
+PORT=5001
+NODE_ENV=development
+JWT_SECRET=securit_afrique_jwt_secret_key_2024_change_in_production
+JWT_EXPIRES_IN=24h
+CORS_ORIGIN=http://192.168.1.100:8081
+BACKEND_IP=192.168.1.100
+DATABASE_URL=postgresql://postgres:<mot_de_passe>@192.168.1.10:5432/securit_afrique_db?schema=public
+POST_ID=POSTE_DAKAR_PLATEAU
+POST_NAME=Commissariat de Dakar Plateau
+```
+
+### frontend/.env
+```env
+VITE_API_URL=http://192.168.1.100:5001/api
+VITE_WS_URL=http://192.168.1.100:5001
+VITE_BACKEND_IP=192.168.1.100
+VITE_POST_ID=POSTE_DAKAR_PLATEAU
+```

@@ -9,6 +9,22 @@ import { UpdateUserDto } from '../types';
 
 class UserService {
   /**
+   * Obtenir la liste des roles disponibles
+   */
+  async getRoles() {
+    return prisma.role.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
+
+  /**
    * Obtenir tous les utilisateurs
    */
   async getAllUsers(page = 1, limit = 10) {

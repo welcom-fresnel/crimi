@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, UserPlus, Search, History, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, Search, History, LogOut, Shield, Settings, UserCog } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -20,12 +20,20 @@ const menuItems = [
   { title: 'Tableau de bord', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Liste des criminels', url: '/criminals', icon: Users },
   { title: 'Ajouter un criminel', url: '/criminals/new', icon: UserPlus },
-  { title: 'Recherche avancée', url: '/search', icon: Search },
-  { title: 'Historique', url: '/history', icon: History },
+  { title: 'Recherche avancee', url: '/search', icon: Search },
+  { title: 'Mon profil', url: '/profile', icon: Settings },
 ];
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
+  const isAdmin = user?.roles?.includes('ADMIN');
+  const displayMenuItems = isAdmin
+    ? [
+        ...menuItems,
+        { title: 'Historique', url: '/history', icon: History },
+        { title: 'Gestion agents', url: '/admin/users', icon: UserCog },
+      ]
+    : menuItems;
 
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return 'U';
@@ -53,7 +61,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/50">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map(item => (
+              {displayMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -96,7 +104,7 @@ export function AppSidebar() {
           onClick={logout}
         >
           <LogOut className="mr-2 h-4 w-4" />
-          Déconnexion
+          Deconnexion
         </Button>
       </SidebarFooter>
     </Sidebar>

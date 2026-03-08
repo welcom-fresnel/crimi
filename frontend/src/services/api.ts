@@ -1,7 +1,18 @@
 import axios from 'axios';
 import { Criminal, CrimeType } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const resolveApiUrl = () => {
+  const configured = import.meta.env.VITE_API_URL as string | undefined;
+  if (configured && configured.trim().length > 0) {
+    return configured;
+  }
+
+  const backendIp = import.meta.env.VITE_BACKEND_IP as string | undefined;
+  const host = backendIp || window.location.hostname || '127.0.0.1';
+  return `http://${host}:5000/api`;
+};
+
+const API_URL = resolveApiUrl();
 
 interface ApiResponse<T> {
   success: boolean;
@@ -20,6 +31,7 @@ interface Profile {
   lastName?: string;
   service?: string;
   grade?: string;
+  phoneNumber?: string;
 }
 
 interface AuthUser {
@@ -45,6 +57,30 @@ interface RegisterPayload {
   service?: string;
   grade?: string;
   roleIds: string[];
+}
+
+interface ChangePasswordPayload {
+  oldPassword: string;
+  newPassword: string;
+}
+
+export interface RoleItem {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface UserListItem {
+  id: string;
+  username: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  profile?: Profile;
+  userRoles?: Array<{
+    role?: RoleItem;
+  }>;
 }
 
 interface CriminalWritePayload {
@@ -148,6 +184,11 @@ export const authAPI = {
     const response = await api.post<ApiResponse<null>>('/auth/logout');
     return response.data;
   },
+
+  changePassword: async (data: ChangePasswordPayload) => {
+    const response = await api.post<ApiResponse<null>>('/auth/change-password', data);
+    return response.data;
+  },
 };
 
 // ==================== CRIMINALS ====================
@@ -234,17 +275,27 @@ export const crimeTypesAPI = {
 
 export const usersAPI = {
   getAll: async (page = 1, limit = 10) => {
-    const response = await api.get<ApiResponse<AuthUser[]>>(`/users?page=${page}&limit=${limit}`);
+    const response = await api.get<ApiResponse<UserListItem[]>>(`/users?page=${page}&limit=${limit}`);
     return response.data;
   },
 
   getById: async (id: string) => {
-    const response = await api.get<ApiResponse<AuthUser>>(`/users/${id}`);
+    const response = await api.get<ApiResponse<UserListItem>>(`/users/${id}`);
+    return response.data;
+  },
+
+  getRoles: async () => {
+    const response = await api.get<ApiResponse<RoleItem[]>>('/users/roles');
     return response.data;
   },
 
   update: async (id: string, data: UserWritePayload) => {
-    const response = await api.put<ApiResponse<AuthUser>>(`/users/${id}`, data);
+    const response = await api.put<ApiResponse<UserListItem>>(`/users/${id}`, data);
+    return response.data;
+  },
+
+  toggleStatus: async (id: string) => {
+    const response = await api.patch<ApiResponse<UserListItem>>(`/users/${id}/toggle-status`);
     return response.data;
   },
 
@@ -269,6 +320,11 @@ export const auditAPI = {
 
   getEntityHistory: async (entity: string, entityId: string) => {
     const response = await api.get<ApiResponse<unknown[]>>(`/audit/${entity}/${entityId}`);
+    return response.data;
+  },
+
+  getMine: async (page = 1, limit = 100) => {
+    const response = await api.get<ApiResponse<unknown[]>>(`/audit/me?page=${page}&limit=${limit}`);
     return response.data;
   },
 };

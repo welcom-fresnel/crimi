@@ -102,6 +102,13 @@ class AuditService {
   }
 
   /**
+   * Obtenir les logs d'audit de l'utilisateur connecté
+   */
+  async getUserAuditLogs(userId: string, page = 1, limit = 50) {
+    return this.getAllAuditLogs(page, limit, { userId });
+  }
+
+  /**
    * Obtenir un journal d'audit par ID
    */
   async getAuditLogById(id: string) {

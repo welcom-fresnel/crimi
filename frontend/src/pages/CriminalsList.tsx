@@ -39,7 +39,7 @@ export default function CriminalsList() {
       (criminal.caseNumber || criminal.fileNumber || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCrimeType =
-      crimeTypeFilter === 'all' || criminal.crimeType.id === crimeTypeFilter;
+      crimeTypeFilter === 'all' || criminal.crimeType?.id === crimeTypeFilter;
 
     const matchesStatus = statusFilter === 'all' || criminal.status === statusFilter;
 

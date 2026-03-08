@@ -45,7 +45,7 @@ export default function SearchPage() {
     }
 
     if (searchCrimeType !== 'all') {
-      filtered = filtered.filter(c => c.crimeType.id === searchCrimeType);
+      filtered = filtered.filter(c => c.crimeType?.id === searchCrimeType);
     }
 
     if (searchStatus !== 'all') {

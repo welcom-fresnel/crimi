@@ -13,6 +13,12 @@ const router = Router();
 // Toutes les routes nécessitent une authentification
 router.use(authenticate);
 
+router.get(
+  '/roles',
+  authorize('users', 'read'),
+  userController.getRoles
+);
+
 /**
  * @route   GET /api/users
  * @desc    Obtenir tous les utilisateurs

@@ -236,10 +236,10 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="crimeTypeId">Type de crime *</Label>
-              <Select
-                onValueChange={value => setValue('crimeTypeId', value)}
-                defaultValue={criminal?.crimeType.id}
-              >
+                <Select
+                  onValueChange={value => setValue('crimeTypeId', value)}
+                  defaultValue={criminal?.crimeType?.id}
+                >
                 <SelectTrigger>
                   <SelectValue placeholder="Selectionner un type" />
                 </SelectTrigger>

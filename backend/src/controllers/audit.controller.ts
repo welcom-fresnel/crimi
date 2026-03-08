@@ -8,6 +8,27 @@ import { auditService } from '../services/audit.service';
 
 class AuditController {
   /**
+   * Obtenir les journaux d'audit de l'utilisateur connecte
+   */
+  async getMyAuditLogs(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const userId = req.user!.userId;
+
+      const result = await auditService.getUserAuditLogs(userId, page, limit);
+
+      res.status(200).json({
+        success: true,
+        data: result.auditLogs,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Obtenir tous les journaux d'audit
    */
   async getAllAuditLogs(req: AuthRequest, res: Response, next: NextFunction) {
