@@ -21,15 +21,13 @@ export const createCriminalValidator = [
     .withMessage('Le nom est requis'),
   
   body('crimeTypeId')
-    .notEmpty()
-    .withMessage('Le type de crime est requis')
+    .optional()
     .isUUID()
     .withMessage('ID de type de crime invalide'),
   
   body('description')
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage('La description est requise')
     .isLength({ min: 10 })
     .withMessage('La description doit contenir au moins 10 caractères'),
   
@@ -52,6 +50,35 @@ export const createCriminalValidator = [
     .optional()
     .isObject()
     .withMessage('Les informations d arrestation sont invalides'),
+
+  body('crimes')
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage('La liste des crimes doit contenir au moins un élément'),
+  
+  body('crimes.*.crimeTypeId')
+    .if(body('crimes').exists())
+    .notEmpty()
+    .withMessage('Le type de crime est requis')
+    .isUUID()
+    .withMessage('ID de type de crime invalide'),
+  
+  body('crimes.*.description')
+    .if(body('crimes').exists())
+    .trim()
+    .notEmpty()
+    .withMessage('La description est requise')
+    .isLength({ min: 10 })
+    .withMessage('La description du crime doit contenir au moins 10 caractères'),
+
+  body().custom((_, { req }) => {
+    const hasCrimesArray = Array.isArray(req.body.crimes) && req.body.crimes.length > 0;
+    const hasLegacyCrime = Boolean(req.body.crimeTypeId && req.body.description);
+    if (!hasCrimesArray && !hasLegacyCrime) {
+      throw new Error('Au moins un crime est requis');
+    }
+    return true;
+  }),
 ];
 
 export const updateCriminalValidator = [
@@ -97,5 +124,30 @@ export const updateCriminalValidator = [
     .optional()
     .isObject()
     .withMessage('Les informations d arrestation sont invalides'),
+];
+
+export const createCrimeValidator = [
+  body('crimeTypeId')
+    .notEmpty()
+    .withMessage('Le type de crime est requis')
+    .isUUID()
+    .withMessage('ID de type de crime invalide'),
+  
+  body('description')
+    .trim()
+    .notEmpty()
+    .withMessage('La description est requise')
+    .isLength({ min: 10 })
+    .withMessage('La description doit contenir au moins 10 caractères'),
+  
+  body('status')
+    .optional()
+    .isIn(['ACTIVE', 'ARRESTED', 'RELEASED', 'DECEASED', 'UNKNOWN'])
+    .withMessage('Statut invalide'),
+  
+  body('dangerLevel')
+    .optional()
+    .isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
+    .withMessage('Niveau de danger invalide'),
 ];
 

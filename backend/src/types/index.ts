@@ -24,7 +24,7 @@ export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type CriminalStatus = 'ACTIVE' | 'ARRESTED' | 'RELEASED' | 'DECEASED' | 'UNKNOWN';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
-export type EntityType = 'CRIMINAL' | 'USER' | 'CRIME_TYPE' | 'ROLE' | 'PROFILE';
+export type EntityType = 'CRIMINAL' | 'CRIME' | 'USER' | 'CRIME_TYPE' | 'ROLE' | 'PROFILE';
 
 // ==================== INTERFACES DE REQUÊTE ====================
 
@@ -68,12 +68,15 @@ export interface CreateCriminalDto {
   gender?: Gender;
   photo?: string;
   fingerprint?: string;
-  crimeTypeId: string;
+  // Crime principal (compatibilité)
+  crimeTypeId?: string;
   crimeDate?: string;
   crimeLocation?: string;
-  description: string;
+  description?: string;
   status?: CriminalStatus;
   dangerLevel?: Severity;
+  // Crimes multiples (nouveau)
+  crimes?: CreateCrimeDto[];
   lastKnownAddress?: string;
   phoneNumber?: string;
   arrestation?: CreateArrestationDto;
@@ -122,6 +125,15 @@ export interface CreateEvidenceDto {
   title?: string;
   description?: string;
   fileUrls?: string[];
+}
+
+export interface CreateCrimeDto {
+  crimeTypeId: string;
+  crimeDate?: string;
+  crimeLocation?: string;
+  description: string;
+  status?: CriminalStatus;
+  dangerLevel?: Severity;
 }
 
 export interface CreateCrimeTypeDto {

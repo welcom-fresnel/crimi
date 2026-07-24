@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -47,6 +48,22 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
   const navigate = useNavigate();
   const { crimeTypes, addCriminal, updateCriminal } = useCriminals();
   const { upsertCriminal } = useCriminals();
+  const nationalityOptions = useMemo(() => {
+    const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
+    if (!supportedValuesOf || typeof Intl.DisplayNames === 'undefined') {
+      return [];
+    }
+    try {
+      const displayNames = new Intl.DisplayNames(['fr'], { type: 'region' as Intl.DisplayNamesOptions['type'] });
+      return supportedValuesOf('region')
+        .filter(code => code.length === 2)
+        .map(code => ({ code, label: displayNames.of(code) ?? code }))
+        .filter(option => option.label && option.label !== option.code)
+        .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+    } catch (_) {
+      return [];
+    }
+  }, []);
 
   const {
     register,
@@ -223,7 +240,25 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nationality">Nationalite</Label>
-                <Input id="nationality" {...register('nationality')} placeholder="Senegalaise" />
+                {nationalityOptions.length > 0 ? (
+                  <Select
+                    onValueChange={value => setValue('nationality', value)}
+                    defaultValue={criminal?.nationality || ''}
+                  >
+                    <SelectTrigger id="nationality">
+                      <SelectValue placeholder="Selectionner une nationalite" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nationalityOptions.map(option => (
+                        <SelectItem key={option.code} value={option.label}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input id="nationality" {...register('nationality')} placeholder="Senegalaise" />
+                )}
               </div>
             </div>
           </CardContent>
@@ -383,3 +418,4 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
     </form>
   );
 }
+

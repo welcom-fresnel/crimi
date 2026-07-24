@@ -15,6 +15,15 @@ import { Plus, Search, LayoutGrid, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Criminal } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 export default function CriminalsList() {
   const navigate = useNavigate();
@@ -24,12 +33,17 @@ export default function CriminalsList() {
   const [crimeTypeFilter, setCrimeTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>(isMobile ? 'grid' : 'table');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (isMobile) {
       setViewMode('grid');
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, crimeTypeFilter, statusFilter, viewMode]);
 
   const filteredCriminals = criminals.filter(criminal => {
     const matchesSearch =
@@ -45,6 +59,24 @@ export default function CriminalsList() {
 
     return matchesSearch && matchesCrimeType && matchesStatus;
   });
+
+  const pageSize = viewMode === 'grid' ? 9 : 10;
+  const totalPages = Math.max(1, Math.ceil(filteredCriminals.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pagedCriminals = filteredCriminals.slice(startIndex, startIndex + pageSize);
+
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const maxPagesToShow = 5;
+    let start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, start + maxPagesToShow - 1);
+    if (end - start < maxPagesToShow - 1) {
+      start = Math.max(1, end - maxPagesToShow + 1);
+    }
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    return pages;
+  };
 
   return (
     <div className="space-y-6">
@@ -118,10 +150,10 @@ export default function CriminalsList() {
       </div>
 
       {viewMode === 'table' ? (
-        <CriminalsTable criminals={filteredCriminals} />
+        <CriminalsTable criminals={pagedCriminals} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredCriminals.map(criminal => (
+          {pagedCriminals.map(criminal => (
             <CriminalCard key={criminal.id} criminal={criminal} />
           ))}
         </div>
@@ -131,6 +163,50 @@ export default function CriminalsList() {
         <div className="text-center py-12">
           <p className="text-muted-foreground">Aucun dossier trouve</p>
         </div>
+      )}
+
+      {filteredCriminals.length > pageSize && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setPage(Math.max(1, currentPage - 1));
+                }}
+              />
+            </PaginationItem>
+            {getPageNumbers().map((pageNumber) => (
+              <PaginationItem key={pageNumber}>
+                <PaginationLink
+                  href="#"
+                  isActive={pageNumber === currentPage}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPage(pageNumber);
+                  }}
+                >
+                  {pageNumber}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            {totalPages > 5 && currentPage < totalPages - 2 && (
+              <PaginationItem>
+                <PaginationEllipsis />
+              </PaginationItem>
+            )}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setPage(Math.min(totalPages, currentPage + 1));
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
     </div>
   );

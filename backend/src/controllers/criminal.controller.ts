@@ -74,7 +74,12 @@ class CriminalController {
       const updatedById = req.user!.userId;
       const originalData = (req as any).originalData;
 
-      const criminal = await criminalService.updateCriminal(id, req.body, updatedById);
+      const criminal = await criminalService.updateCriminal(
+        id,
+        req.body,
+        updatedById,
+        req.user!.roles
+      );
 
       const payload: CriminalUpdatedPayload = {
         criminal,
@@ -114,7 +119,12 @@ class CriminalController {
       }
 
       const photoUrl = `/uploads/photos/${path.basename(file.path)}`;
-      const updatedCriminal = await criminalService.saveCriminalPhoto(id, photoUrl, req.user!.userId);
+      const updatedCriminal = await criminalService.saveCriminalPhoto(
+        id,
+        photoUrl,
+        req.user!.userId,
+        req.user!.roles
+      );
 
       const payload: CriminalUpdatedPayload = {
         criminal: updatedCriminal,
@@ -156,6 +166,35 @@ class CriminalController {
         success: true,
         message: 'Piece a conviction enregistree',
         data: evidence,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async addCrime(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const crime = await criminalService.addCrime(id, req.body, req.user!.userId);
+
+      return res.status(201).json({
+        success: true,
+        message: 'Crime ajouté avec succès',
+        data: crime,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async deleteCriminal(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const result = await criminalService.deleteCriminal(id, req.user!.userId);
+
+      return res.status(200).json({
+        success: true,
+        message: result.message,
       });
     } catch (error) {
       return next(error);

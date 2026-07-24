@@ -1,0 +1,138 @@
+
+<div id="cls" style="padding:1rem 0"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+  },
+});
+const { svg } = await mermaid.render('cls-svg', `classDiagram
+    class User {
+        +String id
+        +String username
+        +String email
+        +String password
+        +Boolean isActive
+        +DateTime createdAt
+        +login() Boolean
+        +hasRole(roleName) Boolean
+    }
+    class Profile {
+        +String id
+        +String userId
+        +String firstName
+        +String lastName
+        +String grade
+        +String service
+        +DateTime deletedAt
+    }
+    class Role {
+        +String id
+        +String name
+        +JSON permissions
+        +hasPermission(action) Boolean
+    }
+    class UserRole {
+        +String id
+        +String userId
+        +String roleId
+        +DateTime assignedAt
+    }
+    class CrimeType {
+        +String id
+        +String name
+        +String code
+        +String severity
+    }
+    class Criminal {
+        +String id
+        +String caseNumber
+        +String firstName
+        +String lastName
+        +String status
+        +String dangerLevel
+        +DateTime deletedAt
+        +softDelete() void
+        +isActive() Boolean
+    }
+    class Crime {
+        +String id
+        +String criminalId
+        +String crimeTypeId
+        +String status
+        +String dangerLevel
+        +DateTime crimeDate
+        +updateStatus(status) void
+    }
+    class Arrestation {
+        +String id
+        +String criminalId
+        +String warrantNumber
+        +String arrestingOfficer
+        +DateTime arrestDate
+    }
+    class Evidence {
+        +String id
+        +String criminalId
+        +String title
+        +String[] fileUrls
+        +addFile(url) void
+    }
+    class AuditLog {
+        +String id
+        +String userId
+        +String action
+        +String entity
+        +JSON changes
+        +String ipAddress
+        +DateTime timestamp
+    }
+
+    User "1" --> "0..1" Profile : a
+    User "1" --> "0..*" UserRole : assigné
+    Role "1" --> "0..*" UserRole : contient
+    User "1" --> "0..*" Criminal : crée
+    User "1" --> "0..*" Crime : crée
+    User "1" --> "0..*" Arrestation : enregistre
+    User "1" --> "0..*" Evidence : soumet
+    User "1" --> "0..*" AuditLog : génère
+    Criminal "1" *-- "0..*" Crime : contient
+    Criminal "1" *-- "0..1" Arrestation : a
+    Criminal "1" *-- "0..*" Evidence : possède
+    CrimeType "1" --> "0..*" Criminal : classifie
+    CrimeType "1" --> "0..*" Crime : catégorise
+`);
+document.getElementById('cls').innerHTML = svg;
+document.querySelectorAll('#cls svg .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+document.querySelectorAll('#cls svg .row-rect-odd path, #cls svg .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>

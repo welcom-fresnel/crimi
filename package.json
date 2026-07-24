@@ -1,0 +1,39 @@
+{
+  "name": "securit-afrique-desktop",
+  "version": "1.0.0",
+  "description": "Desktop wrapper (Electron) for Securit Afrique Hub (frontend + backend)",
+  "main": "electron/main.js",
+  "scripts": {
+    "build:backend": "cd backend && npm install && npm run build",
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build:all": "npm run build:backend && npm run build:frontend",
+    "start": "electron .",
+    "dist": "electron-builder --windows --x64"
+  },
+  "devDependencies": {
+    "electron": "^26.0.0",
+    "electron-builder": "^24.6.0"
+  },
+  "build": {
+    "appId": "com.securit.afrique",
+    "productName": "Securit Afrique Hub",
+    "files": [
+      "frontend/dist/**",
+      "backend/dist/**",
+      "backend/.env",
+      "node_modules/**",
+      "electron/**"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "win": {
+      "target": ["nsis"]
+    }
+  }
+}

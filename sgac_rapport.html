@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAC — Rapport de Soutenance</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c10;
+  --bg2: #0f1117;
+  --bg3: #161820;
+  --surface: #1a1d26;
+  --surface2: #21242f;
+  --border: #2a2d3a;
+  --border2: #333648;
+  --gold: #c9a84c;
+  --gold2: #e8c76a;
+  --gold-dim: rgba(201,168,76,0.12);
+  --text: #e8e6e0;
+  --text2: #9a97a0;
+  --text3: #5a5870;
+  --accent: #4f7ef0;
+  --accent2: #6b93f5;
+  --success: #3dba7c;
+  --danger: #e05252;
+  --sidebar: 280px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: var(--sidebar);
+  min-height: 100vh;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0; left: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  padding: 2rem 1.5rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-logo {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.sidebar-sub {
+  font-size: 0.72rem;
+  color: var(--text3);
+  margin-top: 0.4rem;
+}
+
+.sidebar-nav { padding: 1rem 0; flex: 1; }
+
+.nav-group { margin-bottom: 0.25rem; }
+
+.nav-group-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.75rem 1.5rem 0.25rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+}
+
+.nav-item:hover { color: var(--text); background: var(--surface); }
+.nav-item.active { color: var(--gold); border-left-color: var(--gold); background: var(--gold-dim); }
+
+.nav-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--border2);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.nav-item.active .nav-dot { background: var(--gold); }
+
+.sidebar-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.7rem;
+  color: var(--text3);
+}
+
+/* ── MAIN ── */
+#main {
+  margin-left: var(--sidebar);
+  flex: 1;
+  min-height: 100vh;
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4rem 5rem;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -100px; left: 20%;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(79,126,240,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,0.3);
+  border-radius: 100px;
+  padding: 0.35rem 1rem;
+  font-size: 0.72rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+  width: fit-content;
+  animation: fadeUp 0.6s ease both;
+}
+
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  animation: fadeUp 0.6s 0.1s ease both;
+}
+
+.hero-title span { color: var(--gold); }
+
+.hero-subtitle {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+  font-weight: 400;
+  color: var(--text2);
+  margin-bottom: 2rem;
+  animation: fadeUp 0.6s 0.2s ease both;
+}
+
+.hero-desc {
+  font-size: 1rem;
+  color: var(--text2);
+  max-width: 600px;
+  line-height: 1.7;
+  margin-bottom: 3rem;
+  animation: fadeUp 0.6s 0.3s ease both;
+}
+
+.hero-meta {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  animation: fadeUp 0.6s 0.4s ease both;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.meta-label {
+  font-size: 0.68rem;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.meta-value {
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.hero-grid {
+  position: absolute;
+  top: 0; right: 0;
+  width: 45%;
+  height: 100%;
+  opacity: 0.03;
+  background-image:
+    linear-gradient(var(--gold) 1px, transparent 1px),
+    linear-gradient(90deg, var(--gold) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* ── SECTIONS ── */
+.section {
+  padding: 5rem;
+  border-bottom: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.section.visible { opacity: 1; transform: translateY(0); }
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.section-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  margin-top: 0.4rem;
+  white-space: nowrap;
+}
+
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.section-title small {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+/* ── PROSE ── */
+.prose {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--text2);
+  max-width: 760px;
+}
+
+.prose p { margin-bottom: 1.2rem; }
+.prose strong { color: var(--text); font-weight: 500; }
+
+/* ── CARDS ── */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.card:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+.card-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.card-desc {
+  font-size: 0.8rem;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ── STATS ROW ── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 2rem 0;
+}
+
+.stat {
+  background: var(--surface);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stat-value {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text3);
+}
+
+/* ── CRITIQUE CARDS ── */
+.critique-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.critique-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  border-left: 3px solid var(--danger);
+}
+
+.suggestion-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  border-left: 3px solid var(--success);
+}
+
+.crit-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--danger);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.sugg-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--success);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.crit-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.4rem;
+}
+
+.crit-desc {
+  font-size: 0.78rem;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ── TABLE ── */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 1.5rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+thead tr {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+thead th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  color: var(--text3);
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface); }
+
+tbody td {
+  padding: 0.75rem 1rem;
+  color: var(--text2);
+}
+
+tbody td:first-child {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--gold);
+}
+
+/* ── TIMELINE ── */
+.timeline {
+  position: relative;
+  padding-left: 2rem;
+  margin: 2rem 0;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px;
+  width: 1px;
+  height: calc(100% - 8px);
+  background: var(--border);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 2rem;
+  padding-left: 1.5rem;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -2rem;
+  top: 6px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+
+.timeline-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--gold);
+  margin-bottom: 0.3rem;
+}
+
+.timeline-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.4rem;
+}
+
+.timeline-desc {
+  font-size: 0.8rem;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ── ARCH DIAGRAM ── */
+.arch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin: 2rem 0;
+  max-width: 600px;
+}
+
+.arch-tier {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+}
+
+.arch-tier.t1 { border-left: 3px solid var(--accent); }
+.arch-tier.t2 { border-left: 3px solid var(--gold); }
+.arch-tier.t3 { border-left: 3px solid var(--success); }
+
+.arch-connector {
+  width: 1px;
+  height: 30px;
+  background: var(--border);
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arch-connector::after {
+  content: '↕';
+  position: absolute;
+  font-size: 0.7rem;
+  color: var(--text3);
+  background: var(--bg);
+  padding: 0 0.25rem;
+}
+
+.arch-icon {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.arch-tier.t1 .arch-icon { background: rgba(79,126,240,0.15); }
+.arch-tier.t2 .arch-icon { background: var(--gold-dim); }
+.arch-tier.t3 .arch-icon { background: rgba(61,186,124,0.1); }
+
+.arch-info { flex: 1; }
+.arch-tier-label { font-size: 0.65rem; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.2rem; }
+.arch-tier-name { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+.arch-tier-tech { font-size: 0.75rem; color: var(--text2); margin-top: 0.2rem; }
+
+.arch-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.arch-tier.t1 .arch-badge { background: rgba(79,126,240,0.15); color: var(--accent2); }
+.arch-tier.t2 .arch-badge { background: var(--gold-dim); color: var(--gold); }
+.arch-tier.t3 .arch-badge { background: rgba(61,186,124,0.1); color: var(--success); }
+
+/* ── TOOLS GRID ── */
+.tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin: 2rem 0;
+}
+
+.tool {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: border-color 0.2s;
+}
+
+.tool:hover { border-color: var(--border2); }
+
+.tool-icon {
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.tool-name { font-size: 0.82rem; font-weight: 500; color: var(--text); }
+.tool-role { font-size: 0.72rem; color: var(--text3); }
+
+/* ── QUOTE ── */
+.quote {
+  border-left: 3px solid var(--gold);
+  padding: 1rem 1.5rem;
+  background: var(--gold-dim);
+  border-radius: 0 8px 8px 0;
+  margin: 2rem 0;
+  font-style: italic;
+  color: var(--text2);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+/* ── PILL TAGS ── */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+.tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  background: var(--surface);
+}
+
+.tag.gold { border-color: rgba(201,168,76,0.3); color: var(--gold); background: var(--gold-dim); }
+.tag.blue { border-color: rgba(79,126,240,0.3); color: var(--accent2); background: rgba(79,126,240,0.08); }
+.tag.green { border-color: rgba(61,186,124,0.3); color: var(--success); background: rgba(61,186,124,0.08); }
+
+/* ── CONCLUSION ── */
+.conclusion-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.concl-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.concl-card h4 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.concl-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.concl-card ul li {
+  font-size: 0.8rem;
+  color: var(--text2);
+  line-height: 1.5;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.concl-card ul li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--gold);
+  font-size: 0.7rem;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── SCROLL INDICATOR ── */
+.scroll-hint {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text3);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: fadeUp 1s 1s ease both;
+}
+
+.scroll-bar {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, var(--gold), transparent);
+  animation: scrollDown 2s ease-in-out infinite;
+}
+
+@keyframes scrollDown {
+  0%, 100% { opacity: 0.3; transform: scaleY(0.5); transform-origin: top; }
+  50% { opacity: 1; transform: scaleY(1); }
+}
+
+/* PROGRESS BAR */
+#progress {
+  position: fixed;
+  top: 0; left: var(--sidebar);
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--accent));
+  z-index: 200;
+  transition: width 0.1s;
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">CIRAS · 2025–2026</div>
+    <div class="sidebar-title">Rapport de Soutenance</div>
+    <div class="sidebar-sub">Licence en Génie Logiciel</div>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-label">Présentation</div>
+      <a class="nav-item active" href="#hero"><span class="nav-dot"></span>Page de garde</a>
+      <a class="nav-item" href="#intro"><span class="nav-dot"></span>Introduction</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Partie I — Structure</div>
+      <a class="nav-item" href="#ciras"><span class="nav-dot"></span>Présentation CIRAS</a>
+      <a class="nav-item" href="#informatique"><span class="nav-dot"></span>Situation informatique</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Partie II — Étude</div>
+      <a class="nav-item" href="#recueil"><span class="nav-dot"></span>Phase de recueil</a>
+      <a class="nav-item" href="#probleme"><span class="nav-dot"></span>Problématique</a>
+      <a class="nav-item" href="#mcd-actuel"><span class="nav-dot"></span>MCD actuel</a>
+      <a class="nav-item" href="#critiques"><span class="nav-dot"></span>Critiques & Suggestions</a>
+      <a class="nav-item" href="#mcd-futur"><span class="nav-dot"></span>MCD futur</a>
+      <a class="nav-item" href="#scenarios"><span class="nav-dot"></span>Scénarios</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Technique</div>
+      <a class="nav-item" href="#architecture"><span class="nav-dot"></span>Architecture</a>
+      <a class="nav-item" href="#mld"><span class="nav-dot"></span>MLD & MPD</a>
+      <a class="nav-item" href="#outils"><span class="nav-dot"></span>Outils utilisés</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Réalisation</div>
+      <a class="nav-item" href="#modules"><span class="nav-dot"></span>Modules</a>
+      <a class="nav-item" href="#conclusion"><span class="nav-dot"></span>Conclusion</a>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    SGAC · Rapport complet · Welcom Fresnel ENGONDZI
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main id="main">
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="hero-grid"></div>
+    <div class="hero-badge">Rapport de fin de cycle · Licence GL</div>
+    <h1 class="hero-title">Système de Gestion des<br><span>Antécédents Criminels</span></h1>
+    <p class="hero-subtitle">Conception et réalisation du SGAC</p>
+    <p class="hero-desc">
+      Projet de fin de cycle réalisé dans le cadre de l'obtention du diplôme de Licence en Génie Logiciel au Centre de Formation en Informatique du CIRAS, Brazzaville, République du Congo.
+    </p>
+    <div class="hero-meta">
+      <div class="meta-item">
+        <span class="meta-label">Étudiant</span>
+        <span class="meta-value">Welcom Fresnel ENGONDZI</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Option</span>
+        <span class="meta-value">Génie Logiciel</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Méthode</span>
+        <span class="meta-value">MERISE</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Année</span>
+        <span class="meta-value">2025 – 2026</span>
+      </div>
+    </div>
+    <div class="scroll-hint">
+      <div class="scroll-bar"></div>
+      Défiler
+    </div>
+  </section>
+
+  <!-- INTRODUCTION -->
+  <section class="section" id="intro">
+    <div class="section-header">
+      <div class="section-num">00</div>
+      <div class="section-title"><small>Chapitre introductif</small>Introduction</div>
+    </div>
+    <div class="prose">
+      <p>L'ère du numérique a profondément transformé les modes de gestion de l'information dans tous les secteurs d'activité, y compris celui de la sécurité publique. Dans ce contexte, la gestion des antécédents criminels constitue un enjeu majeur pour les forces de l'ordre, car elle conditionne directement l'efficacité des enquêtes et la qualité du suivi judiciaire.</p>
+      <p>C'est dans cette optique que j'ai mené des recherches au sein de postes de police de Brazzaville, avec l'autorisation des autorités policières compétentes, afin d'analyser le système de gestion des antécédents criminels en vigueur et d'en proposer une solution informatique adaptée.</p>
+    </div>
+    <div class="quote">
+      « Comment concevoir et réaliser un système informatique permettant de gérer de manière efficace, sécurisée et traçable les antécédents criminels au sein des postes de police ? »
+    </div>
+    <div class="tags">
+      <span class="tag gold">MERISE</span>
+      <span class="tag blue">React.js</span>
+      <span class="tag blue">Node.js</span>
+      <span class="tag blue">PostgreSQL</span>
+      <span class="tag green">Socket.io</span>
+      <span class="tag green">JWT</span>
+      <span class="tag">Prisma ORM</span>
+    </div>
+  </section>
+
+  <!-- CIRAS -->
+  <section class="section" id="ciras">
+    <div class="section-header">
+      <div class="section-num">01</div>
+      <div class="section-title"><small>Première partie · Chapitre 1</small>Présentation du CIRAS</div>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">1979</div>
+        <div class="stat-label">Année de création</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">7</div>
+        <div class="stat-label">Directions centrales</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">2025</div>
+        <div class="stat-label">Réforme majeure</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">24/7</div>
+        <div class="stat-label">Veille opérationnelle</div>
+      </div>
+    </div>
+    <div class="prose">
+      <p>Le <strong>Centre d'Informatique et de Recherche de l'Armée et de la Sécurité (CIRAS)</strong> assiste les hautes institutions de l'État dans le domaine de la promotion du numérique en matière de défense nationale et de sécurité. Fondé en 1979, il a connu une réforme majeure en 2025 visant à moderniser son organisation.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">🔬</div>
+        <div class="card-title">Direction Recherche & Stratégie</div>
+        <div class="card-desc">Conception et mise en œuvre de projets de recherche sur les technologies innovantes.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">Direction Cybersécurité</div>
+        <div class="card-desc">Élaboration des politiques et normes de sécurité des systèmes d'information.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏗️</div>
+        <div class="card-title">Direction Infrastructures</div>
+        <div class="card-desc">Politique d'acquisition, de suivi et d'évaluation des systèmes numériques.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚙️</div>
+        <div class="card-title">Direction Études & Développement</div>
+        <div class="card-desc">Développement, intégration et maintenance des systèmes applicatifs.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECUEIL -->
+  <section class="section" id="recueil">
+    <div class="section-header">
+      <div class="section-num">02</div>
+      <div class="section-title"><small>Deuxième partie · Chapitre 3</small>Phase de recueil</div>
+    </div>
+    <div class="prose">
+      <p>La phase de recueil a été conduite auprès des postes de police de Brazzaville, avec l'autorisation des autorités compétentes. Trois méthodes ont été combinées pour collecter l'information.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">🎙️</div>
+        <div class="card-title">Entretiens</div>
+        <div class="card-desc">Échanges directs avec les officiers de permanence, chefs de poste et commissaires sur leurs pratiques quotidiennes.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👁️</div>
+        <div class="card-title">Observation</div>
+        <div class="card-desc">Observation directe du fonctionnement des postes et des outils utilisés : registres, fiches papier, archives physiques.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <div class="card-title">Recherche documentaire</div>
+        <div class="card-desc">Étude de la Fiche de Mise à Disposition — document officiel utilisé pour chaque individu interpellé.</div>
+      </div>
+    </div>
+    <div class="prose">
+      <p>Trois acteurs principaux ont été identifiés dans le système existant, organisés selon une hiérarchie claire :</p>
+    </div>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-label">Niveau 1</div>
+        <div class="timeline-title">Officier de permanence</div>
+        <div class="timeline-desc">Premier intervenant. Remplit la Fiche de Mise à Disposition pour chaque individu interpellé. Travaille par rotation (délestage) — un officier différent chaque jour.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-label">Niveau 2</div>
+        <div class="timeline-title">Chef de poste</div>
+        <div class="timeline-desc">Supervise et valide les fiches complétées par les officiers. Classe les fiches dans le registre physique du poste.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-label">Niveau 3</div>
+        <div class="timeline-title">Commissaire</div>
+        <div class="timeline-desc">Autorité supérieure. Reçoit les comptes rendus périodiques du chef de poste. N'a pas d'accès direct aux dossiers individuels.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEME -->
+  <section class="section" id="probleme">
+    <div class="section-header">
+      <div class="section-num">03</div>
+      <div class="section-title"><small>Analyse de l'existant</small>Problématique identifiée</div>
+    </div>
+    <div class="prose">
+      <p>L'analyse du système existant a révélé que la gestion des antécédents criminels repose <strong>intégralement sur des supports papier</strong> — registres manuscrits, fiches individuelles et archives physiques — générant de nombreux dysfonctionnements critiques.</p>
+    </div>
+    <div class="critique-grid">
+      <div class="critique-card">
+        <span class="crit-tag">C1 — CRITIQUE</span>
+        <div class="crit-title">Discontinuité due au délestage</div>
+        <div class="crit-desc">La rotation des officiers crée des ruptures d'information sans mécanisme formel de passation.</div>
+      </div>
+      <div class="critique-card">
+        <span class="crit-tag">C2 — CRITIQUE</span>
+        <div class="crit-title">Lenteur de la recherche</div>
+        <div class="crit-desc">Retrouver les antécédents d'un individu exige de parcourir manuellement des registres volumineux.</div>
+      </div>
+      <div class="critique-card">
+        <span class="crit-tag">C3 — CRITIQUE</span>
+        <div class="crit-title">Absence de traçabilité</div>
+        <div class="crit-desc">Impossible de savoir qui a consulté, modifié ou ajouté une information dans un dossier.</div>
+      </div>
+      <div class="critique-card">
+        <span class="crit-tag">C4 — CRITIQUE</span>
+        <div class="crit-title">Fragilité du papier</div>
+        <div class="crit-desc">Risques de perte, détérioration ou destruction sans aucune copie de sauvegarde.</div>
+      </div>
+      <div class="critique-card">
+        <span class="crit-tag">C5 — CRITIQUE</span>
+        <div class="crit-title">Cloisonnement entre postes</div>
+        <div class="crit-desc">Aucun partage d'information entre postes — un récidiviste peut passer inaperçu.</div>
+      </div>
+      <div class="critique-card">
+        <span class="crit-tag">C6 — CRITIQUE</span>
+        <div class="crit-title">Un seul crime par fiche</div>
+        <div class="crit-desc">La fiche papier ne prévoit qu'une infraction — impossible de constituer un profil criminel complet.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MCD ACTUEL -->
+  <section class="section" id="mcd-actuel">
+    <div class="section-header">
+      <div class="section-num">04</div>
+      <div class="section-title"><small>Modélisation du système existant</small>MCD Actuel</div>
+    </div>
+    <div class="prose">
+      <p>Le MCD actuel a été extrait directement de la <strong>Fiche de Mise à Disposition</strong> en usage au Commissariat de Police de Quartier Talangaï II. Il révèle 4 entités principales dans le système papier.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Entité</th>
+            <th>Attributs principaux</th>
+            <th>Cardinalité</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>INTERESSE</td><td>nom, prénom, pseudonyme, date_naissance, adresse, nationalité</td><td>1 → 0,N INFRACTION</td></tr>
+          <tr><td>INFRACTION</td><td>infraction_retenue, résumé_faits, lieu_commission, heure_garde_vue</td><td>1 → 0,N VICTIME</td></tr>
+          <tr><td>VICTIME</td><td>nom_victime, adresse_victime, tel_victime</td><td>—</td></tr>
+          <tr><td>AGENT</td><td>nom_agent, unité_destination, date_heure_dispo</td><td>1 → 0,N INTERESSE</td></tr>
+          <tr><td>CHEF DE POSTE</td><td>nom_chef, signature</td><td>1 ← N AGENT</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CRITIQUES -->
+  <section class="section" id="critiques">
+    <div class="section-header">
+      <div class="section-num">05</div>
+      <div class="section-title"><small>Bilan de l'analyse</small>Critiques & Suggestions</div>
+    </div>
+    <div class="critique-grid">
+      <div class="suggestion-card">
+        <span class="sugg-tag">S1 — SOLUTION</span>
+        <div class="crit-title">Informatiser la gestion</div>
+        <div class="crit-desc">Remplacer le papier par une application web avec base de données centralisée.</div>
+      </div>
+      <div class="suggestion-card">
+        <span class="sugg-tag">S2 — SOLUTION</span>
+        <div class="crit-title">Comptes utilisateurs</div>
+        <div class="crit-desc">Chaque agent dispose d'un compte personnel — le délestage ne crée plus aucune rupture.</div>
+      </div>
+      <div class="suggestion-card">
+        <span class="sugg-tag">S3 — SOLUTION</span>
+        <div class="crit-title">Traçabilité automatique</div>
+        <div class="crit-desc">Toutes les actions sont journalisées automatiquement avec horodatage et identité de l'agent.</div>
+      </div>
+      <div class="suggestion-card">
+        <span class="sugg-tag">S4 — SOLUTION</span>
+        <div class="crit-title">Multi-crimes par dossier</div>
+        <div class="crit-desc">Un individu récidiviste dispose d'un profil criminel complet avec toutes ses infractions.</div>
+      </div>
+      <div class="suggestion-card">
+        <span class="sugg-tag">S5 — SOLUTION</span>
+        <div class="crit-title">Gestion par rôles</div>
+        <div class="crit-desc">Officier → Chef de poste → Commissaire : chaque niveau a ses droits d'accès adaptés.</div>
+      </div>
+      <div class="suggestion-card">
+        <span class="sugg-tag">S6 — SOLUTION</span>
+        <div class="crit-title">Suppression logique</div>
+        <div class="crit-desc">Les dossiers ne sont jamais effacés — conformité aux exigences légales de conservation.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MCD FUTUR -->
+  <section class="section" id="mcd-futur">
+    <div class="section-header">
+      <div class="section-num">06</div>
+      <div class="section-title"><small>Phase de conception</small>MCD Futur — SGAC</div>
+    </div>
+    <div class="prose">
+      <p>Le MCD futur intègre toutes les améliorations identifiées. Le système passe de <strong>4 entités simples</strong> à <strong>9 entités structurées</strong> avec traçabilité, multi-crimes, gestion des rôles et archivage logique.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Entité</th><th>Description</th><th>Nouveauté</th></tr></thead>
+        <tbody>
+          <tr><td>UTILISATEUR</td><td>Agent de sécurité avec compte personnel</td><td>✦ Nouveau</td></tr>
+          <tr><td>PROFIL</td><td>Informations complémentaires de l'agent</td><td>✦ Nouveau</td></tr>
+          <tr><td>ROLE</td><td>Rôle fonctionnel avec permissions JSON</td><td>✦ Nouveau</td></tr>
+          <tr><td>TYPE_CRIME</td><td>Référentiel des catégories d'infractions</td><td>✦ Nouveau</td></tr>
+          <tr><td>DOSSIER_CRIMINEL</td><td>Dossier complet d'un mis en cause</td><td>Évolué</td></tr>
+          <tr><td>CRIME</td><td>Infraction spécifique rattachée au dossier</td><td>✦ Nouveau</td></tr>
+          <tr><td>ARRESTATION</td><td>Fiche d'interpellation numérique</td><td>✦ Nouveau</td></tr>
+          <tr><td>PREUVE</td><td>Pièces à conviction avec fichiers</td><td>✦ Nouveau</td></tr>
+          <tr><td>JOURNAL_AUDIT</td><td>Traçabilité automatique de toutes les actions</td><td>✦ Nouveau</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tags">
+      <span class="tag">10 règles de gestion</span>
+      <span class="tag">56 données modélisées</span>
+      <span class="tag gold">Suppression logique</span>
+      <span class="tag green">Audit automatique</span>
+      <span class="tag blue">Multi-crimes</span>
+    </div>
+  </section>
+
+  <!-- SCENARIOS -->
+  <section class="section" id="scenarios">
+    <div class="section-header">
+      <div class="section-num">07</div>
+      <div class="section-title"><small>Phase d'appréciation</small>Choix du scénario</div>
+    </div>
+    <div class="critique-grid">
+      <div class="card" style="border-left:3px solid var(--text3); opacity:0.7">
+        <div class="card-title" style="color:var(--text2)">❌ Scénario 1 — Application desktop</div>
+        <div class="card-desc" style="margin-top:0.75rem">
+          Installation sur chaque machine, pas de partage entre postes distants, notifications temps réel complexes, ne résout pas le cloisonnement entre postes.
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--success)">
+        <div class="card-title">✅ Scénario 2 — Application web 3-tiers</div>
+        <div class="card-desc" style="margin-top:0.75rem">
+          Accessible depuis tout navigateur, données centralisées, maintenance simplifiée, WebSocket natif, gestion des rôles fine. <strong style="color:var(--success)">Scénario retenu.</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section class="section" id="architecture">
+    <div class="section-header">
+      <div class="section-num">08</div>
+      <div class="section-title"><small>Chapitre 5 — Étude technique</small>Architecture 3-tiers</div>
+    </div>
+    <div class="arch">
+      <div class="arch-tier t1">
+        <div class="arch-icon">🖥️</div>
+        <div class="arch-info">
+          <div class="arch-tier-label">Tier 1 — Présentation</div>
+          <div class="arch-tier-name">Frontend</div>
+          <div class="arch-tier-tech">Interface utilisateur, rendu des pages, interactions</div>
+        </div>
+        <div class="arch-badge">React.js</div>
+      </div>
+      <div class="arch-connector"></div>
+      <div class="arch-tier t2">
+        <div class="arch-icon">⚙️</div>
+        <div class="arch-info">
+          <div class="arch-tier-label">Tier 2 — Application</div>
+          <div class="arch-tier-name">Backend API + WebSocket</div>
+          <div class="arch-tier-tech">Logique métier, authentification, notifications temps réel</div>
+        </div>
+        <div class="arch-badge">Node.js / Express</div>
+      </div>
+      <div class="arch-connector"></div>
+      <div class="arch-tier t3">
+        <div class="arch-icon">🗄️</div>
+        <div class="arch-info">
+          <div class="arch-tier-label">Tier 3 — Données</div>
+          <div class="arch-tier-name">Base de données</div>
+          <div class="arch-tier-tech">Stockage persistant, UUID, JSON, TEXT[], index</div>
+        </div>
+        <div class="arch-badge">PostgreSQL</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MLD -->
+  <section class="section" id="mld">
+    <div class="section-header">
+      <div class="section-num">09</div>
+      <div class="section-title"><small>Modélisation logique</small>MLD — Tables principales</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>Clé primaire</th><th>Clés étrangères</th><th>Contraintes notables</th></tr></thead>
+        <tbody>
+          <tr><td>users</td><td>id (UUID)</td><td>—</td><td>username UQ, email UQ</td></tr>
+          <tr><td>profiles</td><td>id (UUID)</td><td>userId → users</td><td>userId UQ, cascade delete</td></tr>
+          <tr><td>roles</td><td>id (UUID)</td><td>—</td><td>name UQ, permissions JSONB</td></tr>
+          <tr><td>user_roles</td><td>id (UUID)</td><td>userId, roleId</td><td>UQ(userId, roleId)</td></tr>
+          <tr><td>crime_types</td><td>id (UUID)</td><td>—</td><td>name UQ, code UQ</td></tr>
+          <tr><td>criminals</td><td>id (UUID)</td><td>crimeTypeId, createdById</td><td>caseNumber UQ, deletedAt</td></tr>
+          <tr><td>crimes</td><td>id (UUID)</td><td>criminalId, crimeTypeId</td><td>cascade delete</td></tr>
+          <tr><td>arrestations</td><td>id (UUID)</td><td>criminalId, createdById</td><td>criminalId UQ</td></tr>
+          <tr><td>evidences</td><td>id (UUID)</td><td>criminalId, createdById</td><td>fileUrls TEXT[]</td></tr>
+          <tr><td>audit_logs</td><td>id (UUID)</td><td>userId</td><td>changes JSONB, timestamp</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- OUTILS -->
+  <section class="section" id="outils">
+    <div class="section-header">
+      <div class="section-num">10</div>
+      <div class="section-title"><small>Stack technologique</small>Outils utilisés</div>
+    </div>
+    <div class="tools">
+      <div class="tool"><div class="tool-icon">⚛️</div><div><div class="tool-name">React.js</div><div class="tool-role">Frontend</div></div></div>
+      <div class="tool"><div class="tool-icon">🟢</div><div><div class="tool-name">Node.js</div><div class="tool-role">Backend runtime</div></div></div>
+      <div class="tool"><div class="tool-icon">🚂</div><div><div class="tool-name">Express.js</div><div class="tool-role">API REST</div></div></div>
+      <div class="tool"><div class="tool-icon">🔷</div><div><div class="tool-name">Prisma ORM</div><div class="tool-role">Abstraction BDD</div></div></div>
+      <div class="tool"><div class="tool-icon">🐘</div><div><div class="tool-name">PostgreSQL</div><div class="tool-role">SGBD</div></div></div>
+      <div class="tool"><div class="tool-icon">🔌</div><div><div class="tool-name">Socket.io</div><div class="tool-role">Temps réel</div></div></div>
+      <div class="tool"><div class="tool-icon">🔐</div><div><div class="tool-name">JWT + bcrypt</div><div class="tool-role">Sécurité</div></div></div>
+      <div class="tool"><div class="tool-icon">📁</div><div><div class="tool-name">Multer</div><div class="tool-role">Upload fichiers</div></div></div>
+      <div class="tool"><div class="tool-icon">💻</div><div><div class="tool-name">VS Code</div><div class="tool-role">Éditeur</div></div></div>
+      <div class="tool"><div class="tool-icon">🧪</div><div><div class="tool-name">Postman</div><div class="tool-role">Test API</div></div></div>
+    </div>
+  </section>
+
+  <!-- MODULES -->
+  <section class="section" id="modules">
+    <div class="section-header">
+      <div class="section-num">11</div>
+      <div class="section-title"><small>Chapitre 6 — Réalisation</small>Modules de l'application</div>
+    </div>
+    <div class="prose">
+      <p>Le SGAC est composé de <strong>12 modules fonctionnels</strong> couvrant l'ensemble du cycle de vie d'un dossier criminel — de la connexion de l'agent jusqu'à la consultation du journal d'audit.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <div class="card-title">Module 1 — Connexion</div>
+        <div class="card-desc">Authentification JWT sécurisée. Accès conditionné au compte actif.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Module 2 — Tableau de bord</div>
+        <div class="card-desc">Vue synthétique en temps réel — statistiques, dossiers récents, activité.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <div class="card-title">Module 3 — Liste des dossiers</div>
+        <div class="card-desc">Tous les dossiers actifs avec recherche multicritères et pagination.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">➕</div>
+        <div class="card-title">Module 4 — Création dossier</div>
+        <div class="card-desc">Formulaire complet avec contrôles automatiques et génération de numéro unique.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👤</div>
+        <div class="card-title">Module 5 — Consultation</div>
+        <div class="card-desc">Profil criminel complet : identité, crimes, arrestation, preuves.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✏️</div>
+        <div class="card-title">Module 6 — Mise à jour</div>
+        <div class="card-desc">Modification tracée automatiquement avec comparaison avant/après.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚖️</div>
+        <div class="card-title">Module 7 — Ajout crime</div>
+        <div class="card-desc">Multi-crimes par dossier — chaque infraction avec ses propres attributs.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚔</div>
+        <div class="card-title">Module 8 — Arrestation</div>
+        <div class="card-desc">Fiche d'arrestation numérique avec unicité garantie par dossier.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗂️</div>
+        <div class="card-title">Module 9 — Preuves</div>
+        <div class="card-desc">Upload et gestion des pièces à conviction liées au dossier.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <div class="card-title">Module 10 — Recherche</div>
+        <div class="card-desc">Moteur de recherche multicritères — résultats en quelques secondes.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📜</div>
+        <div class="card-title">Module 11 — Audit</div>
+        <div class="card-desc">Journal d'audit complet — filtrable par agent, action, période.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👥</div>
+        <div class="card-title">Module 12 — Utilisateurs</div>
+        <div class="card-desc">Administration des comptes agents et attribution des rôles.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCLUSION -->
+  <section class="section" id="conclusion">
+    <div class="section-header">
+      <div class="section-num">12</div>
+      <div class="section-title"><small>Pour finir</small>Conclusion</div>
+    </div>
+    <div class="prose">
+      <p>Ce projet démontre qu'il est possible, avec les outils technologiques disponibles aujourd'hui, de moderniser significativement la gestion de l'information dans les services de sécurité publique congolais. Le SGAC n'est pas simplement une numérisation du système papier — c'est une <strong>refonte complète du processus</strong>, pensée pour les contraintes réelles du terrain policier.</p>
+    </div>
+    <div class="conclusion-grid">
+      <div class="concl-card">
+        <h4>✅ Objectifs atteints</h4>
+        <ul>
+          <li>Numérisation complète des dossiers criminels</li>
+          <li>Gestion multi-crimes par dossier</li>
+          <li>Traçabilité automatique et exhaustive</li>
+          <li>Gestion des accès par rôles hiérarchiques</li>
+          <li>Notifications temps réel (délestage résolu)</li>
+          <li>Conservation légale par suppression logique</li>
+        </ul>
+      </div>
+      <div class="concl-card">
+        <h4>🔭 Perspectives d'évolution</h4>
+        <ul>
+          <li>Enums PostgreSQL natifs pour les statuts</li>
+          <li>Timeline judiciaire par dossier</li>
+          <li>Déploiement multi-postes à Brazzaville</li>
+          <li>Module de rapports statistiques</li>
+          <li>Authentification à deux facteurs (2FA)</li>
+          <li>Application mobile pour les agents terrain</li>
+        </ul>
+      </div>
+    </div>
+    <div class="quote">
+      « Le SGAC démontre qu'il est possible, avec les outils technologiques disponibles aujourd'hui, de moderniser significativement la gestion de l'information dans les services de sécurité publique congolais. »
+    </div>
+    <div style="text-align:center; padding: 3rem 0 1rem;">
+      <div style="font-family:'Playfair Display',serif; font-size:1.5rem; color:var(--gold); margin-bottom:0.5rem">Welcom Fresnel ENGONDZI</div>
+      <div style="font-size:0.82rem; color:var(--text3)">Licence en Génie Logiciel · CIRAS · 2025–2026</div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// Progress bar
+window.addEventListener('scroll', () => {
+  const doc = document.documentElement;
+  const scrolled = doc.scrollTop;
+  const total = doc.scrollHeight - doc.clientHeight;
+  const pct = (scrolled / total) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+});
+
+// Active nav
+const sections = document.querySelectorAll('section[id]');
+const navItems = document.querySelectorAll('.nav-item');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navItems.forEach(n => n.classList.remove('active'));
+      const active = document.querySelector(`.nav-item[href="#${entry.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3, rootMargin: '-10% 0px -60% 0px' });
+
+sections.forEach(s => observer.observe(s));
+
+// Scroll reveal
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.section').forEach(s => revealObserver.observe(s));
+</script>
+</body>
+</html>

@@ -56,6 +56,13 @@ export default function Dashboard() {
     },
   ];
 
+  const formatDateTime = (value?: string) => {
+    if (!value) return 'Date inconnue';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Date inconnue';
+    return format(date, "d MMM yyyy 'a' HH:mm", { locale: fr });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -123,7 +130,7 @@ export default function Dashboard() {
                         <span className="text-muted-foreground ml-2">({criminal.caseNumber})</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(criminal.createdAt), "d MMM yyyy 'a' HH:mm", { locale: fr })}
+                        {formatDateTime(criminal.createdAt)}
                       </p>
                     </div>
                   </div>

@@ -29,6 +29,8 @@ model User {
   criminalsUpdated Criminal[] @relation("UpdatedBy")
   evidencesCreated Evidence[] @relation("EvidenceCreatedBy")
   arrestationsCreated Arrestation[] @relation("ArrestationCreatedBy")
+  crimesCreated Crime[] @relation("CrimeCreatedBy")
+  crimesUpdated Crime[] @relation("CrimeUpdatedBy")
 
   @@map("users")
 }
@@ -96,6 +98,7 @@ model CrimeType {
 
   // Relations
   criminals Criminal[]
+  crimes    Crime[]
 
   @@map("crime_types")
 }
@@ -131,6 +134,7 @@ model Criminal {
   updatedById     String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   // Relations
   crimeType   CrimeType @relation(fields: [crimeTypeId], references: [id])
@@ -138,6 +142,7 @@ model Criminal {
   updatedBy   User?     @relation("UpdatedBy", fields: [updatedById], references: [id])
   evidences   Evidence[]
   arrestation Arrestation?
+  crimes      Crime[]
 
   @@index([caseNumber])
   @@index([firstName, lastName])
@@ -181,6 +186,31 @@ model Evidence {
   @@index([criminalId])
   @@index([createdById])
   @@map("evidences")
+}
+
+model Crime {
+  id            String   @id @default(uuid())
+  criminalId    String
+  crimeTypeId   String
+  crimeDate     DateTime?
+  crimeLocation String?
+  description   String   @db.Text
+  status        String   @default("ACTIVE") // ACTIVE, ARRESTED, RELEASED, DECEASED, UNKNOWN
+  dangerLevel   String?  // LOW, MEDIUM, HIGH, CRITICAL
+  createdById   String
+  updatedById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  criminal  Criminal @relation(fields: [criminalId], references: [id], onDelete: Cascade)
+  crimeType CrimeType @relation(fields: [crimeTypeId], references: [id])
+  createdBy User     @relation("CrimeCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?    @relation("CrimeUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([criminalId])
+  @@index([crimeTypeId])
+  @@index([status])
+  @@map("crimes")
 }
 
 // ==================== SYSTÈME D'AUDIT ====================

@@ -291,7 +291,8 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const response = await criminalsAPI.search(params);
 
       if (response.success) {
-        setCriminals(response.data as Criminal[]);
+        const mapped = (response.data || []).map((criminal) => mapCriminal(criminal as CriminalPayload));
+        setCriminals(mapped);
       }
     } catch (error) {
       console.error('Erreur de recherche:', error);

@@ -215,11 +215,17 @@ class UserService {
       throw new ApiError(404, 'Utilisateur non trouvé');
     }
 
-    await prisma.user.delete({
+    if (!user.isActive) {
+      return { message: 'Utilisateur déjà désactivé' };
+    }
+
+    await prisma.user.update({
       where: { id },
+      data: { isActive: false },
+      select: { id: true },
     });
 
-    return { message: 'Utilisateur supprimé avec succès' };
+    return { message: 'Utilisateur désactivé avec succès' };
   }
 }
 

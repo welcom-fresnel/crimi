@@ -12,6 +12,16 @@ import { Badge } from '@/components/ui/badge';
 import { History, Plus, Pencil, Trash2, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useEffect, useState } from 'react';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 interface ChangeValue {
   old?: unknown;
@@ -22,6 +32,35 @@ interface ChangeValue {
 
 export default function HistoryPage() {
   const { auditLogs } = useCriminals();
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const formatDateSafe = (value?: string, pattern = 'dd/MM/yyyy') => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return format(date, pattern, { locale: fr });
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [auditLogs.length]);
+
+  const totalPages = Math.max(1, Math.ceil(auditLogs.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pagedLogs = auditLogs.slice(startIndex, startIndex + pageSize);
+
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const maxPagesToShow = 5;
+    let start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, start + maxPagesToShow - 1);
+    if (end - start < maxPagesToShow - 1) {
+      start = Math.max(1, end - maxPagesToShow + 1);
+    }
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    return pages;
+  };
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -66,12 +105,12 @@ export default function HistoryPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3 md:hidden">
-            {auditLogs.length > 0 ? (
-              auditLogs.map((log) => (
+            {pagedLogs.length > 0 ? (
+              pagedLogs.map((log) => (
                 <div key={log.id} className="rounded-lg border p-3 space-y-2 bg-background/70">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-xs text-muted-foreground">
-                      {format(new Date(log.createdAt || log.timestamp || Date.now()), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                      {formatDateSafe(log.createdAt || log.timestamp, 'dd/MM/yyyy HH:mm')}
                     </div>
                     {getActionBadge((log.action || 'view').toLowerCase())}
                   </div>
@@ -100,15 +139,15 @@ export default function HistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {auditLogs.length > 0 ? (
-                  auditLogs.map((log) => (
-                    <TableRow key={log.id}>
+            {pagedLogs.length > 0 ? (
+              pagedLogs.map((log) => (
+                <TableRow key={log.id}>
                       <TableCell className="whitespace-nowrap">
                         <div className="text-sm">
-                          {format(new Date(log.createdAt || log.timestamp || Date.now()), 'dd/MM/yyyy', { locale: fr })}
+                          {formatDateSafe(log.createdAt || log.timestamp, 'dd/MM/yyyy')}
                           <br />
                           <span className="text-muted-foreground text-xs">
-                            {format(new Date(log.createdAt || log.timestamp || Date.now()), 'HH:mm', { locale: fr })}
+                            {formatDateSafe(log.createdAt || log.timestamp, 'HH:mm')}
                           </span>
                         </div>
                       </TableCell>
@@ -169,18 +208,61 @@ export default function HistoryPage() {
                       </TableCell>
                     </TableRow>
                   ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      Aucun log d'audit disponible
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  Aucun log d'audit disponible
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      {auditLogs.length > pageSize && (
+        <Pagination className="mt-6">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setPage(Math.max(1, currentPage - 1));
+                }}
+              />
+            </PaginationItem>
+            {getPageNumbers().map((pageNumber) => (
+              <PaginationItem key={pageNumber}>
+                <PaginationLink
+                  href="#"
+                  isActive={pageNumber === currentPage}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPage(pageNumber);
+                  }}
+                >
+                  {pageNumber}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            {totalPages > 5 && currentPage < totalPages - 2 && (
+              <PaginationItem>
+                <PaginationEllipsis />
+              </PaginationItem>
+            )}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setPage(Math.min(totalPages, currentPage + 1));
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+    </CardContent>
+  </Card>
     </div>
   );
 }

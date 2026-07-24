@@ -231,6 +231,8 @@ Get-FileHash C:\migration_incoming\securit_afrique_db_backup.sql
 ```cmd
 # Vérifier le service PostgreSQL
 Get-Service postgresql-x64-18
+#forcer le lancement
+Get-NetTCPConnection -LocalPort 5000 -State Listen | Select-Object -ExpandProperty OwningProcess | % { Stop-Process -Id $_ -Force }
 
 # Vérifier que PostgreSQL écoute
 netstat -an | findstr 5432

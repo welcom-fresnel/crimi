@@ -7,7 +7,7 @@ import { criminalController } from '../controllers/criminal.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { auditLog, saveOriginalData } from '../middlewares/audit.middleware';
 import { validate } from '../middlewares/validation.middleware';
-import { createCriminalValidator, updateCriminalValidator } from '../validators/criminal.validator';
+import { createCriminalValidator, updateCriminalValidator, createCrimeValidator } from '../validators/criminal.validator';
 import { criminalService } from '../services/criminal.service';
 import multer from 'multer';
 import path from 'path';
@@ -87,6 +87,22 @@ router.post(
   uploadEvidence.array('evidenceFiles', 6),
   auditLog('UPDATE', 'CRIMINAL'),
   criminalController.addEvidence,
+);
+
+router.post(
+  '/:id/crimes',
+  authorize('criminals', 'update'),
+  validate(createCrimeValidator),
+  auditLog('CREATE', 'CRIME'),
+  criminalController.addCrime,
+);
+
+router.delete(
+  '/:id',
+  authorize('criminals', 'delete'),
+  saveOriginalData('CRIMINAL', (id: string) => criminalService.getCriminalById(id)),
+  auditLog('DELETE', 'CRIMINAL'),
+  criminalController.deleteCriminal,
 );
 
 export default router;

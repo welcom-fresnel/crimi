@@ -21,6 +21,13 @@ interface CriminalsTableProps {
 export function CriminalsTable({ criminals }: CriminalsTableProps) {
   const navigate = useNavigate();
 
+  const formatDateSafe = (value?: string) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return format(date, 'dd MMM yyyy', { locale: fr });
+  };
+
   return (
     <div className="rounded-lg border bg-card">
       <div className="overflow-x-auto">
@@ -60,9 +67,11 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
                 </TableCell>
                 <TableCell className="hidden lg:table-cell text-sm">
                   {(criminal.arrestDate || criminal.crimeDate) ? (
-                    format(new Date(criminal.arrestDate || criminal.crimeDate!), 'dd MMM yyyy', { locale: fr })
+                    formatDateSafe(criminal.arrestDate || criminal.crimeDate!) || (
+                      <span className="text-muted-foreground text-xs">Non renseignee</span>
+                    )
                   ) : (
-                    <span className="text-muted-foreground text-xs">Non renseignée</span>
+                    <span className="text-muted-foreground text-xs">Non renseignee</span>
                   )}
                 </TableCell>
                 <TableCell className="hidden md:table-cell text-sm">

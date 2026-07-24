@@ -14,6 +14,7 @@ La base centralise:
 - les utilisateurs (agents) et leurs roles/permissions,
 - les dossiers criminels,
 - les types de crimes,
+- les crimes (multiples par dossier),
 - les pieces a conviction (avec preuves images),
 - les donnees d'arrestation,
 - l'audit des actions effectuees dans le systeme.
@@ -27,6 +28,7 @@ La base centralise:
 - Les dates de modification utilisent `@updatedAt`.
 - Les suppressions en cascade existent sur certaines relations (ex: `profiles.user`, `evidences.criminal`, `arrestations.criminal`).
 - Les statuts et severites sont stockes en `String` (pseudo-enums applicatifs).
+- La suppression des dossiers criminels est logique (soft delete via `deletedAt`).
 
 ---
 
@@ -40,6 +42,7 @@ La base centralise:
 - `UserRole` (association N:N User<->Role)
 - `CrimeType` (referentiel des infractions)
 - `Criminal` (dossier criminel)
+- `Crime` (infraction associee a un dossier)
 - `Arrestation` (details d'interpellation d'un dossier)
 - `Evidence` (piece a conviction d'un dossier)
 - `AuditLog` (tracabilite des actions)
@@ -48,9 +51,13 @@ La base centralise:
 
 - `User` (1,1) -- (0,1) `Profile`
 - `User` (1,N) -- (1,N) `Role` via `UserRole`
-- `CrimeType` (1,1) -- (0,N) `Criminal`
+- `CrimeType` (1,1) -- (0,N) `Criminal` (crime principal, historique)
+- `CrimeType` (1,1) -- (0,N) `Crime`
 - `User` (1,1) -- (0,N) `Criminal` [createdBy]
 - `User` (1,1) -- (0,N) `Criminal` [updatedBy, optionnel]
+- `Criminal` (1,1) -- (0,N) `Crime`
+- `User` (1,1) -- (0,N) `Crime` [createdBy]
+- `User` (1,1) -- (0,N) `Crime` [updatedBy, optionnel]
 - `Criminal` (1,1) -- (0,1) `Arrestation`
 - `User` (1,1) -- (0,N) `Arrestation` [createdBy]
 - `Criminal` (1,1) -- (0,N) `Evidence`
@@ -66,6 +73,10 @@ erDiagram
     ROLES ||--o{ USER_ROLES : contains
 
     CRIME_TYPES ||--o{ CRIMINALS : classifies
+    CRIME_TYPES ||--o{ CRIMES : categorizes
+    CRIMINALS ||--o{ CRIMES : records
+    USERS ||--o{ CRIMES : creates
+    USERS ||--o{ CRIMES : updates
 
     USERS ||--o{ CRIMINALS : creates
     USERS ||--o{ CRIMINALS : updates
@@ -108,6 +119,10 @@ Relations:
 - 0..N `criminals` (updatedBy)
 - 0..N `evidences` (createdBy)
 - 0..N `arrestations` (createdBy)
+- 0..N `crimes` (createdBy)
+- 0..N `crimes` (updatedBy)
+- 0..N `crimes` (createdBy)
+- 0..N `crimes` (updatedBy)
 
 ### 4.2 Table `profiles`
 
@@ -121,6 +136,7 @@ Relations:
 - `photo` (TEXT, NULL)
 - `createdAt` (TIMESTAMP, NN, default now)
 - `updatedAt` (TIMESTAMP, NN, auto update)
+- `deletedAt` (TIMESTAMP, NULL)
 
 Regle:
 - `onDelete: Cascade` depuis `users`.
@@ -168,18 +184,19 @@ Contraintes:
 - `gender` (TEXT, NULL)
 - `photo` (TEXT, NULL)
 - `fingerprint` (TEXT, NULL)
-- `crimeTypeId` (FK -> crime_types.id, NN)
+- `crimeTypeId` (FK -> crime_types.id, NN) - crime principal (compatibilite)
 - `crimeDate` (TIMESTAMP, NULL)
 - `crimeLocation` (TEXT, NULL)
-- `description` (TEXT, NN)
-- `status` (TEXT, NN, default `ACTIVE`)
-- `dangerLevel` (TEXT, NULL)
+- `description` (TEXT, NN) - description du crime principal
+- `status` (TEXT, NN, default `ACTIVE`) - statut du crime principal
+- `dangerLevel` (TEXT, NULL) - dangerosite du crime principal
 - `lastKnownAddress` (TEXT, NULL)
 - `phoneNumber` (TEXT, NULL)
 - `createdById` (FK -> users.id, NN)
 - `updatedById` (FK -> users.id, NULL)
 - `createdAt` (TIMESTAMP, NN, default now)
 - `updatedAt` (TIMESTAMP, NN, auto update)
+- `deletedAt` (TIMESTAMP, NULL)
 
 Indexes:
 - IDX `caseNumber`
@@ -190,6 +207,7 @@ Indexes:
 Relations:
 - 0..N `evidences`
 - 0..1 `arrestation`
+- 0..N `crimes`
 
 ### 4.7 Table `arrestations`
 
@@ -249,9 +267,35 @@ Indexes:
 
 ---
 
+### 4.10 Table `crimes`
+
+- `id` (PK, UUID, NN)
+- `criminalId` (FK -> criminals.id, NN)
+- `crimeTypeId` (FK -> crime_types.id, NN)
+- `crimeDate` (TIMESTAMP, NULL)
+- `crimeLocation` (TEXT, NULL)
+- `description` (TEXT, NN)
+- `status` (TEXT, NN, default `ACTIVE`)
+- `dangerLevel` (TEXT, NULL)
+- `createdById` (FK -> users.id, NN)
+- `updatedById` (FK -> users.id, NULL)
+- `createdAt` (TIMESTAMP, NN, default now)
+- `updatedAt` (TIMESTAMP, NN, auto update)
+
+Indexes:
+- IDX `criminalId`
+- IDX `crimeTypeId`
+- IDX `status`
+
+Regles:
+- Un criminel peut avoir plusieurs crimes.
+- `onDelete: Cascade` depuis `criminals`.
+
+---
+
 ## 5) Domaines de valeurs (regles metier applicatives)
 
-### 5.1 Criminal.status
+### 5.1 Criminal.status / Crime.status
 Valeurs utilisees par l'application:
 - `ACTIVE` (recherche)
 - `ARRESTED` (arrete)
@@ -262,7 +306,7 @@ Valeurs utilisees par l'application:
 ### 5.2 Criminal.gender
 - `MALE`, `FEMALE`, `OTHER`
 
-### 5.3 Criminal.dangerLevel / CrimeType.severity
+### 5.3 Criminal.dangerLevel / Crime.dangerLevel / CrimeType.severity
 - `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
 
 ### 5.4 Audit.action
@@ -276,10 +320,11 @@ Valeurs utilisees par l'application:
 - Un `Criminal` doit avoir un `CrimeType` valide et un createur (`createdById`).
 - Une `Arrestation` est liee a un seul `Criminal` (unicite `criminalId`).
 - Une `Evidence` doit etre liee a un `Criminal` et a un `User` createur.
+- Un `Crime` doit etre lie a un `Criminal`, un `CrimeType` et un `User` createur.
 - Les associations role-utilisateur sont dedoublonnees par `UNIQUE(userId, roleId)`.
 
 Note applicative:
-- Meme si le schema permettrait techniquement certaines suppressions par cascade, le backend actuel desactive la suppression des dossiers criminels (politique de conservation et tracabilite).
+- La suppression d'un dossier criminel est logique via `deletedAt` (conservation + tracabilite).
 
 ---
 
@@ -290,9 +335,10 @@ Note applicative:
 - `roles(id PK, name UQ, permissions JSON, ... )`
 - `user_roles(id PK, userId FK -> users.id, roleId FK -> roles.id, UQ(userId, roleId), ... )`
 - `crime_types(id PK, name UQ, code UQ, severity, ... )`
-- `criminals(id PK, caseNumber UQ, crimeTypeId FK -> crime_types.id, createdById FK -> users.id, updatedById FK -> users.id NULL, ... )`
+- `criminals(id PK, caseNumber UQ, crimeTypeId FK -> crime_types.id, createdById FK -> users.id, updatedById FK -> users.id NULL, deletedAt NULL, ... )`
 - `arrestations(id PK, criminalId FK UQ -> criminals.id, createdById FK -> users.id, ... )`
 - `evidences(id PK, criminalId FK -> criminals.id, createdById FK -> users.id, fileUrls TEXT[], ... )`
+- `crimes(id PK, criminalId FK -> criminals.id, crimeTypeId FK -> crime_types.id, createdById FK -> users.id, updatedById FK -> users.id NULL, ... )`
 - `audit_logs(id PK, userId FK -> users.id, action, entity, changes JSON, timestamp, ... )`
 
 ---
@@ -311,7 +357,7 @@ Note applicative:
 - Ajout de `Evidence` (pieces a conviction).
 - Ajout de `Arrestation` (fiche d'interpellation).
 - Ajout du statut `RELEASED`.
-- Retrait de la suppression de criminel dans les routes API.
+- Ajout de `Crime` (multi-crimes par dossier) et soft delete `deletedAt`.
 
 ---
 
@@ -332,10 +378,13 @@ Objectif: partir du schema Prisma existant et produire des diagrammes exploitabl
 - Outil conseille: diagrams.net (draw.io) ou Mermaid.
 - Niveau de detail: entites metier + cardinalites, sans details SQL.
 - Entites a garder: `User`, `Profile`, `Role`, `UserRole`, `CrimeType`, `Criminal`, `Arrestation`, `Evidence`, `AuditLog`.
+- Entites a ajouter: `Crime`.
 - Cardinalites a afficher en priorite:
   - User 1..1 -> 0..1 Profile
   - User N..N Role via UserRole
   - CrimeType 1..1 -> 0..N Criminal
+  - CrimeType 1..1 -> 0..N Crime
+  - Criminal 1..1 -> 0..N Crime
   - Criminal 1..1 -> 0..1 Arrestation
   - Criminal 1..1 -> 0..N Evidence
   - User 1..1 -> 0..N AuditLog
@@ -348,6 +397,7 @@ Objectif: partir du schema Prisma existant et produire des diagrammes exploitabl
   - FK avec sens de relation
   - contraintes d'unicite (`users.username`, `users.email`, `criminals.caseNumber`, etc.)
   - tables d'association (`user_roles`)
+  - table `crimes` (multi-crimes par dossier)
 
 ### 11.3 MPD (physique PostgreSQL)
 - Outil conseille: DBeaver, pgAdmin ERD, SchemaSpy.
@@ -356,6 +406,7 @@ Objectif: partir du schema Prisma existant et produire des diagrammes exploitabl
   - `roles.permissions` en JSON
   - `evidences.fileUrls` en TEXT[]
   - indexes `criminals(status, crimeTypeId, caseNumber)`
+  - indexes `crimes(criminalId, crimeTypeId, status)`
   - performances de `audit_logs(timestamp, userId)`
 
 ### 11.4 Diagramme de flux applicatif (recommande)
@@ -383,6 +434,8 @@ erDiagram
     USERS ||--o{ USER_ROLES : assigned
     ROLES ||--o{ USER_ROLES : contains
     CRIME_TYPES ||--o{ CRIMINALS : classifies
+    CRIME_TYPES ||--o{ CRIMES : categorizes
+    CRIMINALS ||--o{ CRIMES : records
     CRIMINALS ||--o| ARRESTATIONS : has
     CRIMINALS ||--o{ EVIDENCES : owns
     USERS ||--o{ AUDIT_LOGS : produces
@@ -397,7 +450,7 @@ sequenceDiagram
     participant WS as Socket.io
 
     UI->>API: POST /api/criminals (JWT)
-    API->>DB: INSERT criminals + arrestation
+    API->>DB: INSERT criminals + crimes + arrestation
     DB-->>API: dossier cree
     API->>WS: broadcast criminal:created
     API-->>UI: 201 + data

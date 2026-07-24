@@ -202,6 +202,30 @@ async function main() {
       },
     });
 
+    const criminal1 = await prisma.criminal.findUnique({
+      where: { caseNumber: 'CR-2024-001' },
+    });
+
+    if (criminal1) {
+      const existingCrime1 = await prisma.crime.findFirst({
+        where: { criminalId: criminal1.id },
+      });
+      if (!existingCrime1) {
+        await prisma.crime.create({
+          data: {
+            criminalId: criminal1.id,
+            crimeTypeId: drugCrimeType.id,
+            crimeDate: new Date('2024-01-15'),
+            crimeLocation: 'Yaoundé, Quartier Bastos',
+            description: 'Trafic international de stupéfiants. Suspect arrêté avec 50kg de cocaïne.',
+            status: 'ARRESTED',
+            dangerLevel: 'HIGH',
+            createdById: adminUser.id,
+          },
+        });
+      }
+    }
+
     await prisma.criminal.upsert({
       where: { caseNumber: 'CR-2024-002' },
       update: {},
@@ -224,6 +248,30 @@ async function main() {
         createdById: agentUser.id,
       },
     });
+
+    const criminal2 = await prisma.criminal.findUnique({
+      where: { caseNumber: 'CR-2024-002' },
+    });
+
+    if (criminal2) {
+      const existingCrime2 = await prisma.crime.findFirst({
+        where: { criminalId: criminal2.id },
+      });
+      if (!existingCrime2) {
+        await prisma.crime.create({
+          data: {
+            criminalId: criminal2.id,
+            crimeTypeId: murderCrimeType.id,
+            crimeDate: new Date('2024-02-10'),
+            crimeLocation: 'Libreville, Gabon',
+            description: 'Meurtre prémédité. Suspect toujours en fuite, considéré comme très dangereux.',
+            status: 'ACTIVE',
+            dangerLevel: 'CRITICAL',
+            createdById: agentUser.id,
+          },
+        });
+      }
+    }
   }
 
   console.log('✅ Exemples de criminels créés avec succès\n');

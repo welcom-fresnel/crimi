@@ -10,7 +10,7 @@ export default function CriminalEdit() {
 
   const criminal = criminals.find(c => c.id === id);
 
-  if (!criminal && isLoading) {
+  if (!criminal && (isLoading || criminals.length === 0)) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Chargement du dossier...</p>
