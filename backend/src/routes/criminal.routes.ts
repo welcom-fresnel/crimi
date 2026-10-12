@@ -26,9 +26,30 @@ const createStorage = (destination: string) =>
     },
   });
 
+const allowedEvidenceMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+]);
+
 const imageFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
-  if (!file.mimetype.startsWith('image/')) {
-    cb(new Error('Le fichier doit etre une image'));
+  if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimetype)) {
+    cb(new Error('Le fichier doit etre une image valide'));
+    return;
+  }
+  cb(null, true);
+};
+
+const evidenceFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
+  if (!allowedEvidenceMimeTypes.has(file.mimetype)) {
+    cb(new Error('Format non autorise. Utilisez une image, PDF, Word, Excel ou fichier texte.'));
     return;
   }
   cb(null, true);
@@ -43,7 +64,7 @@ const uploadPhoto = multer({
 const uploadEvidence = multer({
   storage: createStorage(evidencesPath),
   limits: { fileSize: MAX_FILE_SIZE_BYTES },
-  fileFilter: imageFileFilter,
+  fileFilter: evidenceFileFilter,
 });
 
 const router = Router();
@@ -63,6 +84,8 @@ router.post(
 router.get('/', authorize('criminals', 'read'), criminalController.getAllCriminals);
 
 router.get('/:id', authorize('criminals', 'read'), criminalController.getCriminalById);
+
+router.get('/:id/evidences', authorize('criminals', 'read'), criminalController.getEvidences);
 
 router.put(
   '/:id',
@@ -85,8 +108,16 @@ router.post(
   '/:id/evidences',
   authorize('criminals', 'update'),
   uploadEvidence.array('evidenceFiles', 6),
-  auditLog('UPDATE', 'CRIMINAL'),
+  auditLog('CREATE', 'EVIDENCE'),
   criminalController.addEvidence,
+);
+
+router.put(
+  '/:id/evidences/:evidenceId',
+  authorize('criminals', 'update'),
+  saveOriginalData('EVIDENCE', (evidenceId: string) => criminalService.getEvidenceById(evidenceId)),
+  auditLog('UPDATE', 'EVIDENCE'),
+  criminalController.updateEvidence,
 );
 
 router.post(

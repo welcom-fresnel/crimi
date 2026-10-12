@@ -4,7 +4,7 @@
 
 import { prisma } from '../utils/prisma';
 import { ApiError } from '../utils/ApiError';
-import { CreateCriminalDto, UpdateCriminalDto, SearchCriminalDto, CreateEvidenceDto, CreateCrimeDto } from '../types';
+import { CreateCriminalDto, UpdateCriminalDto, SearchCriminalDto, CreateEvidenceDto, UpdateEvidenceDto, CreateCrimeDto } from '../types';
 import fs from 'fs';
 import path from 'path';
 
@@ -23,6 +23,18 @@ const mapArrestationInput = (data?: CreateCriminalDto['arrestation'] | UpdateCri
 const toDateOrNull = (value?: string) => {
   if (value === undefined) return undefined;
   return value ? new Date(value) : null;
+};
+
+const evidenceCategories = new Set(['WEAPON', 'DOCUMENT', 'DIGITAL', 'BIOLOGICAL', 'OTHER']);
+
+const parseEvidenceDate = (value?: string | null) => {
+  if (value === undefined) return undefined;
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ApiError(400, 'La date de collecte est invalide');
+  }
+  return date;
 };
 
 const deleteFileIfSafe = (fileUrl?: string) => {
@@ -221,11 +233,19 @@ class CriminalService {
       throw new ApiError(400, 'Veuillez fournir une description ou au moins un fichier de preuve');
     }
 
+    const category = data.category || 'OTHER';
+    if (!evidenceCategories.has(category)) {
+      throw new ApiError(400, 'La categorie de preuve est invalide');
+    }
+
     const evidence = await prisma.evidence.create({
       data: {
         criminalId: id,
         title: data.title,
         description: data.description,
+        category,
+        collectedAt: parseEvidenceDate(data.collectedAt),
+        collectedAtLocation: data.collectedAtLocation || null,
         fileUrls: data.fileUrls || [],
         createdById,
       },
@@ -239,6 +259,39 @@ class CriminalService {
     });
 
     return evidence;
+  }
+
+  async getEvidenceById(evidenceId: string) {
+    const evidence = await prisma.evidence.findUnique({ where: { id: evidenceId } });
+    if (!evidence) {
+      throw new ApiError(404, 'Piece a conviction non trouvee');
+    }
+    return evidence;
+  }
+
+  async updateEvidence(criminalId: string, evidenceId: string, data: UpdateEvidenceDto) {
+    const evidence = await this.getEvidenceById(evidenceId);
+    if (evidence.criminalId !== criminalId) {
+      throw new ApiError(404, 'Piece a conviction non trouvee');
+    }
+
+    if (data.category !== undefined && !evidenceCategories.has(data.category)) {
+      throw new ApiError(400, 'La categorie de preuve est invalide');
+    }
+
+    return prisma.evidence.update({
+      where: { id: evidenceId },
+      data: {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        collectedAt: parseEvidenceDate(data.collectedAt),
+        collectedAtLocation: data.collectedAtLocation,
+      },
+      include: {
+        createdBy: { select: { username: true } },
+      },
+    });
   }
 
   /**

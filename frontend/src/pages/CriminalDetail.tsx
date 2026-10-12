@@ -3,6 +3,7 @@ import { useCriminals } from '@/contexts/CriminalsContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/criminals/StatusBadge';
+import EvidenceSection from '@/components/criminals/EvidenceSection';
 import { ArrowLeft, Pencil, User, Calendar, MapPin, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -254,40 +255,7 @@ export default function CriminalDetail() {
             </Card>
           )}
 
-          {criminal.evidences && criminal.evidences.length > 0 && (
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="text-lg">Pieces a conviction</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {criminal.evidences.map((evidence) => (
-                  <div key={evidence.id} className="space-y-3 border-b pb-4 last:border-0 last:pb-0">
-                    <div className="space-y-1">
-                      <p className="font-medium">{evidence.title || 'Piece sans titre'}</p>
-                      {evidence.description && (
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{evidence.description}</p>
-                      )}
-                    </div>
-                    {evidence.fileUrls && evidence.fileUrls.length > 0 && (
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {evidence.fileUrls.map((fileUrl) => {
-                          const normalized = normalizeUrl(fileUrl);
-                          return (
-                          <a key={fileUrl} href={normalized} target="_blank" rel="noreferrer" className="block">
-                            <img
-                              src={normalized}
-                              alt="Piece a conviction"
-                              className="h-40 w-full rounded-md border object-cover"
-                            />
-                          </a>
-                        );})}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          <EvidenceSection criminalId={criminal.id} />
 
           <Card className="glass-card">
             <CardHeader>

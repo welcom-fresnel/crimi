@@ -26,9 +26,10 @@ export const auditLog = (action: AuditAction, entity: EntityType) => {
         // Si la requête a réussi (status 2xx), enregistrer l'audit
         if (res.statusCode >= 200 && res.statusCode < 300 && req.user) {
           // Extraire l'ID de l'entité depuis différentes sources
-          const entityId = 
-            req.params.id || 
-            body?.data?.id || 
+          const entityId =
+            req.params.evidenceId ||
+            body?.data?.id ||
+            req.params.id ||
             body?.id;
           
           // Préparer les changements pour l'audit

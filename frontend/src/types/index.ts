@@ -21,8 +21,12 @@ export interface Evidence {
   id: string;
   title?: string;
   description?: string;
+  category: 'WEAPON' | 'DOCUMENT' | 'DIGITAL' | 'BIOLOGICAL' | 'OTHER';
+  collectedAt?: string | null;
+  collectedAtLocation?: string | null;
   fileUrls: string[];
   createdAt: string;
+  updatedAt?: string;
   createdBy?: {
     username?: string;
   };

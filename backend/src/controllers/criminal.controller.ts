@@ -7,6 +7,7 @@ import { AuthRequest } from '../types';
 import { criminalService } from '../services/criminal.service';
 import { socketService } from '../services/socket.service';
 import { CriminalCreatedPayload, CriminalUpdatedPayload } from '../types/socket.types';
+import { auditService } from '../services/audit.service';
 import path from 'path';
 
 class CriminalController {
@@ -157,6 +158,9 @@ class CriminalController {
         {
           title: req.body.title,
           description: req.body.description,
+          category: req.body.category,
+          collectedAt: req.body.collectedAt,
+          collectedAtLocation: req.body.collectedAtLocation,
           fileUrls,
         },
         req.user!.userId,
@@ -165,6 +169,45 @@ class CriminalController {
       return res.status(201).json({
         success: true,
         message: 'Piece a conviction enregistree',
+        data: evidence,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async getEvidences(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const criminal = await criminalService.getCriminalById(req.params.id);
+      const evidences = criminal.evidences;
+      await Promise.all(evidences.map((evidence) => auditService.createAuditLog({
+        userId: req.user!.userId,
+        action: 'VIEW',
+        entity: 'EVIDENCE',
+        entityId: evidence.id,
+        changes: { criminalId: criminal.id },
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      }))).catch((error) => {
+        console.error('Erreur lors de l\'audit de consultation des preuves:', error);
+      });
+
+      return res.status(200).json({ success: true, data: evidences });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async updateEvidence(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const evidence = await criminalService.updateEvidence(
+        req.params.id,
+        req.params.evidenceId,
+        req.body,
+      );
+      return res.status(200).json({
+        success: true,
+        message: 'Piece a conviction mise a jour',
         data: evidence,
       });
     } catch (error) {

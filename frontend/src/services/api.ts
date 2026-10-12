@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Criminal, CrimeType } from '../types';
+import { Criminal, CrimeType, Evidence } from '../types';
 
 const resolveApiUrl = () => {
   const configured = import.meta.env.VITE_API_URL as string | undefined;
@@ -113,6 +113,9 @@ interface CriminalWritePayload {
 interface EvidenceWritePayload {
   title?: string;
   description?: string;
+  category?: Evidence['category'];
+  collectedAt?: string;
+  collectedAtLocation?: string;
   files?: File[];
 }
 
@@ -227,11 +230,31 @@ export const criminalsAPI = {
     const form = new FormData();
     if (payload.title) form.append('title', payload.title);
     if (payload.description) form.append('description', payload.description);
+    if (payload.category) form.append('category', payload.category);
+    if (payload.collectedAt) form.append('collectedAt', payload.collectedAt);
+    if (payload.collectedAtLocation) form.append('collectedAtLocation', payload.collectedAtLocation);
     (payload.files || []).forEach((file) => form.append('evidenceFiles', file));
 
     const response = await api.post<ApiResponse<unknown>>(`/criminals/${id}/evidences`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return response.data;
+  },
+
+  getEvidences: async (id: string) => {
+    const response = await api.get<ApiResponse<Evidence[]>>(`/criminals/${id}/evidences`);
+    return response.data;
+  },
+
+  updateEvidence: async (
+    criminalId: string,
+    evidenceId: string,
+    payload: Omit<EvidenceWritePayload, 'files'>,
+  ) => {
+    const response = await api.put<ApiResponse<Evidence>>(
+      `/criminals/${criminalId}/evidences/${evidenceId}`,
+      payload,
+    );
     return response.data;
   },
 

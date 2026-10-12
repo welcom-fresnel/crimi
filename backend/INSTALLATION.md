@@ -150,16 +150,9 @@ brew services start postgresql@14
 # Se connecter à PostgreSQL
 psql -U postgres
 
-# Dans le shell PostgreSQL :
-CREATE DATABASE securit_afrique_db;
-
-# Créer un utilisateur (optionnel)
-CREATE USER securit_admin WITH PASSWORD 'votre_mot_de_passe';
-GRANT ALL PRIVILEGES ON DATABASE securit_afrique_db TO securit_admin;
-
-# Quitter
+CREATE ROLE securit_admin WITH LOGIN PASSWORD 'crimi123';
+CREATE DATABASE securit_afrique_db OWNER securit_admin;
 \q
-```
 
 ### Étape 5 : Configurer les variables d'environnement
 

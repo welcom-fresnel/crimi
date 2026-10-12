@@ -23,8 +23,8 @@ export type UserStatus = 'ACTIVE' | 'INACTIVE';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type CriminalStatus = 'ACTIVE' | 'ARRESTED' | 'RELEASED' | 'DECEASED' | 'UNKNOWN';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
-export type EntityType = 'CRIMINAL' | 'CRIME' | 'USER' | 'CRIME_TYPE' | 'ROLE' | 'PROFILE';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'VIEW';
+export type EntityType = 'CRIMINAL' | 'CRIME' | 'EVIDENCE' | 'USER' | 'CRIME_TYPE' | 'ROLE' | 'PROFILE';
 
 // ==================== INTERFACES DE REQUÊTE ====================
 
@@ -124,7 +124,18 @@ export interface UpdateArrestationDto {
 export interface CreateEvidenceDto {
   title?: string;
   description?: string;
+  category?: string;
+  collectedAt?: string | null;
+  collectedAtLocation?: string | null;
   fileUrls?: string[];
+}
+
+export interface UpdateEvidenceDto {
+  title?: string;
+  description?: string;
+  category?: string;
+  collectedAt?: string | null;
+  collectedAtLocation?: string | null;
 }
 
 export interface CreateCrimeDto {

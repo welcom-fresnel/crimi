@@ -35,6 +35,9 @@ const criminalSchema = z.object({
   notes: z.string().optional(),
   evidenceTitle: z.string().optional(),
   evidenceDescription: z.string().optional(),
+  evidenceCategory: z.enum(['WEAPON', 'DOCUMENT', 'DIGITAL', 'BIOLOGICAL', 'OTHER']).optional(),
+  collectedAt: z.string().optional(),
+  collectedAtLocation: z.string().optional(),
 });
 
 type CriminalFormData = z.infer<typeof criminalSchema>;
@@ -90,6 +93,9 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           notes: criminal.notes || criminal.description || '',
           evidenceTitle: '',
           evidenceDescription: '',
+          evidenceCategory: 'OTHER',
+          collectedAt: '',
+          collectedAtLocation: '',
         }
       : {
           status: 'ARRESTED' as CriminalStatus,
@@ -99,6 +105,9 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           arrestationNotes: '',
           evidenceTitle: '',
           evidenceDescription: '',
+          evidenceCategory: 'OTHER',
+          collectedAt: '',
+          collectedAtLocation: '',
         },
   });
 
@@ -119,6 +128,17 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
     const crimeType = crimeTypes.find(ct => ct.id === data.crimeTypeId);
     if (!crimeType) {
       toast.error('Erreur', { description: 'Type de crime invalide' });
+      return;
+    }
+
+    const evidenceInput = document.getElementById('evidenceFiles') as HTMLInputElement | null;
+    const evidenceFiles = evidenceInput?.files ? Array.from(evidenceInput.files) : [];
+    if (evidenceFiles.length > 6) {
+      toast.error('Trop de fichiers', { description: 'Vous pouvez joindre au maximum 6 fichiers.' });
+      return;
+    }
+    if (evidenceFiles.some((file) => file.size > 5 * 1024 * 1024)) {
+      toast.error('Fichier trop volumineux', { description: 'Chaque fichier doit faire 5 Mo maximum.' });
       return;
     }
 
@@ -171,8 +191,6 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       }
 
       // Ajouter les pieces a conviction (description + images)
-      const evidenceInput = document.getElementById('evidenceFiles') as HTMLInputElement | null;
-      const evidenceFiles = evidenceInput?.files ? Array.from(evidenceInput.files) : [];
       const hasEvidenceText = !!data.evidenceTitle || !!data.evidenceDescription;
       if (createdId && (hasEvidenceText || evidenceFiles.length > 0)) {
         try {
@@ -180,6 +198,9 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           await criminalsAPI.addEvidence(createdId, {
             title: data.evidenceTitle,
             description: data.evidenceDescription,
+            category: data.evidenceCategory || 'OTHER',
+            collectedAt: data.collectedAt || undefined,
+            collectedAtLocation: data.collectedAtLocation || undefined,
             files: evidenceFiles,
           });
         } catch (err) {
@@ -189,7 +210,21 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           });
         }
       }
-      // Naviguer directement apres la sauvegarde
+      if (createdId) {
+        try {
+          const { criminalsAPI } = await import('@/services/api');
+          const refreshed = await criminalsAPI.getById(createdId);
+          if (refreshed.success) {
+            upsertCriminal(refreshed.data);
+          }
+        } catch (err) {
+          console.error('Erreur lors du rechargement du dossier:', err);
+        }
+
+        navigate(`/criminals/${createdId}`);
+        return;
+      }
+
       navigate('/criminals');
     } catch (error) {
       // L'erreur est deja geree dans le contexte
@@ -391,7 +426,39 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
               </div>
               <div className="space-y-2">
                 <Label htmlFor="evidenceFiles">Images de preuve</Label>
-                <Input id="evidenceFiles" name="evidenceFiles" type="file" accept="image/*" multiple />
+                <Input
+                  id="evidenceFiles"
+                  name="evidenceFiles"
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  multiple
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="evidenceCategory">Categorie</Label>
+                <Select
+                  onValueChange={(value) => setValue('evidenceCategory', value as CriminalFormData['evidenceCategory'])}
+                  defaultValue="OTHER"
+                >
+                  <SelectTrigger id="evidenceCategory"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="WEAPON">Arme</SelectItem>
+                    <SelectItem value="DOCUMENT">Document</SelectItem>
+                    <SelectItem value="DIGITAL">Numerique</SelectItem>
+                    <SelectItem value="BIOLOGICAL">Biologique</SelectItem>
+                    <SelectItem value="OTHER">Autre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="collectedAt">Date de collecte</Label>
+                <Input id="collectedAt" type="date" {...register('collectedAt')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="collectedAtLocation">Lieu de collecte</Label>
+                <Input id="collectedAtLocation" {...register('collectedAtLocation')} placeholder="Lieu de saisie" />
               </div>
             </div>
             <div className="space-y-2">

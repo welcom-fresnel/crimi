@@ -172,19 +172,24 @@ model Arrestation {
 }
 
 model Evidence {
-  id          String   @id @default(uuid())
-  criminalId  String
-  title       String?
-  description String?  @db.Text
-  fileUrls    String[]
-  createdById String
-  createdAt   DateTime @default(now())
+  id                  String   @id @default(uuid())
+  criminalId          String
+  title               String?
+  description         String?  @db.Text
+  category            String   @default("OTHER")
+  collectedAt         DateTime?
+  collectedAtLocation String?
+  fileUrls            String[]
+  createdById         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   criminal  Criminal @relation(fields: [criminalId], references: [id], onDelete: Cascade)
   createdBy User     @relation("EvidenceCreatedBy", fields: [createdById], references: [id])
 
   @@index([criminalId])
   @@index([createdById])
+  @@index([category])
   @@map("evidences")
 }
 
