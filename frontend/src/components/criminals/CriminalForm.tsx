@@ -1,23 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Criminal, CriminalStatus } from '@/types';
+import { CrimeRecord, Criminal, CriminalStatus } from '@/types';
 import { useCriminals } from '@/contexts/CriminalsContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Plus, X } from 'lucide-react';
 
 const criminalSchema = z.object({
   firstName: z.string().min(2, 'Le prenom est requis'),
@@ -42,6 +36,19 @@ const criminalSchema = z.object({
 
 type CriminalFormData = z.infer<typeof criminalSchema>;
 
+const toDateInputValue = (value?: string | null) => {
+  if (!value) return '';
+  const isoDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (isoDate) return isoDate;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 interface CriminalFormProps {
   criminal?: Criminal;
   isEditing?: boolean;
@@ -51,6 +58,15 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
   const navigate = useNavigate();
   const { crimeTypes, addCriminal, updateCriminal } = useCriminals();
   const { upsertCriminal } = useCriminals();
+  const [pendingCrimes, setPendingCrimes] = useState<CrimeRecord[]>([]);
+  const [crimeDraft, setCrimeDraft] = useState({
+    crimeTypeId: '',
+    crimeDate: '',
+    crimeLocation: '',
+    description: '',
+    status: 'ACTIVE' as CriminalStatus,
+    dangerLevel: '',
+  });
   const nationalityOptions = useMemo(() => {
     const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
     if (!supportedValuesOf || typeof Intl.DisplayNames === 'undefined') {
@@ -79,10 +95,12 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       ? {
           firstName: criminal.firstName,
           lastName: criminal.lastName,
-          birthDate: criminal.birthDate || criminal.dateOfBirth || '',
+          birthDate: toDateInputValue(criminal.birthDate || criminal.dateOfBirth),
           nationality: criminal.nationality || '',
           crimeTypeId: criminal.crimeType?.id || '',
-          arrestDate: criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate || '',
+          arrestDate: toDateInputValue(
+            criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate,
+          ),
           arrestLocation:
             criminal.arrestation?.arrestLocation || criminal.arrestLocation || criminal.crimeLocation || '',
           arrestingUnit: criminal.arrestation?.arrestingUnit || '',
@@ -175,6 +193,32 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
         createdId = res?.id || null;
       }
 
+      if (isEditing && criminal && pendingCrimes.length > 0) {
+        let savedCount = 0;
+        try {
+          const { criminalsAPI } = await import('@/services/api');
+          for (const pendingCrime of pendingCrimes) {
+            await criminalsAPI.addCrime(criminal.id, {
+              crimeTypeId: pendingCrime.crimeTypeId,
+              crimeDate: pendingCrime.crimeDate || undefined,
+              crimeLocation: pendingCrime.crimeLocation || undefined,
+              description: pendingCrime.description,
+              status: pendingCrime.status,
+              dangerLevel: pendingCrime.dangerLevel || undefined,
+            });
+            savedCount += 1;
+          }
+          setPendingCrimes([]);
+        } catch (error) {
+          setPendingCrimes((current) => current.slice(savedCount));
+          throw new Error(
+            savedCount > 0
+              ? `${savedCount} crime(s) ajoute(s), mais les suivants n'ont pas pu etre enregistres. Les crimes restants sont conserves dans le formulaire.`
+              : error instanceof Error ? error.message : 'Impossible d ajouter le crime au dossier.',
+          );
+        }
+      }
+
       // If a photo file was selected, upload it and update local state immediately
       const photoInput = (document.getElementById('photo') as HTMLInputElement);
       if (photoInput && photoInput.files && photoInput.files.length > 0 && createdId) {
@@ -229,7 +273,23 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
     } catch (error) {
       // L'erreur est deja geree dans le contexte
       console.error('Erreur lors de la soumission:', error);
+      toast.error('Enregistrement incomplet', {
+        description: error instanceof Error ? error.message : 'Impossible d enregistrer les modifications.',
+      });
     }
+  };
+
+  const stageCrime = () => {
+    if (!crimeDraft.crimeTypeId) {
+      toast.error('Type de crime requis');
+      return;
+    }
+    if (crimeDraft.description.trim().length < 10) {
+      toast.error('Description trop courte', { description: 'La description doit contenir au moins 10 caracteres.' });
+      return;
+    }
+    setPendingCrimes((current) => [...current, { ...crimeDraft, description: crimeDraft.description.trim(), id: `pending-${Date.now()}-${current.length}`, crimeType: crimeTypes.find((type) => type.id === crimeDraft.crimeTypeId)!, createdAt: new Date().toISOString() }]);
+    setCrimeDraft({ crimeTypeId: '', crimeDate: '', crimeLocation: '', description: '', status: 'ACTIVE', dangerLevel: '' });
   };
 
   const statusOptions: { value: CriminalStatus; label: string }[] = [
@@ -276,21 +336,16 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
               <div className="space-y-2">
                 <Label htmlFor="nationality">Nationalite</Label>
                 {nationalityOptions.length > 0 ? (
-                  <Select
-                    onValueChange={value => setValue('nationality', value)}
-                    defaultValue={criminal?.nationality || ''}
+                  <select
+                    id="nationality"
+                    {...register('nationality')}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   >
-                    <SelectTrigger id="nationality">
-                      <SelectValue placeholder="Selectionner une nationalite" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nationalityOptions.map(option => (
-                        <SelectItem key={option.code} value={option.label}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="">Selectionner une nationalite</option>
+                    {nationalityOptions.map(option => (
+                      <option key={option.code} value={option.label}>{option.label}</option>
+                    ))}
+                  </select>
                 ) : (
                   <Input id="nationality" {...register('nationality')} placeholder="Senegalaise" />
                 )}
@@ -306,25 +361,14 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="crimeTypeId">Type de crime *</Label>
-                <Select
-                  onValueChange={value => setValue('crimeTypeId', value)}
-                  defaultValue={criminal?.crimeType?.id}
+                <select
+                  id="crimeTypeId"
+                  {...register('crimeTypeId')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selectionner un type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {crimeTypes && crimeTypes.length > 0 ? (
-                    crimeTypes.map(type => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="__none__" disabled>Aucun type disponible</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                  <option value="" disabled>Selectionner un type</option>
+                  {crimeTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
+                </select>
               {errors.crimeTypeId && (
                 <p className="text-sm text-destructive">{errors.crimeTypeId.message}</p>
               )}
@@ -339,21 +383,13 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Statut *</Label>
-                <Select
-                  onValueChange={value => setValue('status', value as CriminalStatus)}
-                  defaultValue={criminal?.status || 'ARRESTED'}
+                <select
+                  id="status"
+                  {...register('status')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
               </div>
             </div>
             <div className="space-y-2">
@@ -410,6 +446,94 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           </CardContent>
         </Card>
 
+        {isEditing && criminal && (
+          <Card className="glass-card md:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-lg">Infractions liees au dossier</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {(criminal.crimes || []).length > 0 && (
+                <div className="divide-y rounded-md border">
+                  {criminal.crimes!.map((crime) => (
+                    <div key={crime.id} className="space-y-1 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium">{crime.crimeType?.name || 'Crime'}</p>
+                        <span className="text-xs text-muted-foreground">{crime.status}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{crime.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {[crime.crimeDate ? toDateInputValue(crime.crimeDate) : '', crime.crimeLocation, crime.dangerLevel].filter(Boolean).join(' · ') || 'Aucune date, lieu ou niveau de danger indique'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {pendingCrimes.length > 0 && (
+                <div className="space-y-2" aria-live="polite">
+                  <p className="text-sm font-medium">Nouveaux crimes a enregistrer ({pendingCrimes.length})</p>
+                  {pendingCrimes.map((crime) => (
+                    <div key={crime.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">{crime.crimeType.name}</p>
+                        <p className="text-sm text-muted-foreground">{crime.description}</p>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" aria-label="Retirer le crime en attente" onClick={() => setPendingCrimes((current) => current.filter((item) => item.id !== crime.id))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-4 rounded-md border p-4">
+                <h3 className="font-medium">Ajouter un crime</h3>
+                <p className="text-sm text-muted-foreground">Preparez un ou plusieurs crimes ici; ils seront enregistres avec le bouton « Mettre a jour » du dossier.</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="newCrimeType">Type de crime *</Label>
+                    <select id="newCrimeType" value={crimeDraft.crimeTypeId} onChange={(event) => setCrimeDraft((current) => ({ ...current, crimeTypeId: event.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      <option value="">Selectionner un type</option>
+                      {crimeTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newCrimeDate">Date du crime</Label>
+                    <Input id="newCrimeDate" type="date" value={crimeDraft.crimeDate} onChange={(event) => setCrimeDraft((current) => ({ ...current, crimeDate: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newCrimeLocation">Lieu du crime</Label>
+                    <Input id="newCrimeLocation" value={crimeDraft.crimeLocation} onChange={(event) => setCrimeDraft((current) => ({ ...current, crimeLocation: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newCrimeStatus">Statut</Label>
+                    <select id="newCrimeStatus" value={crimeDraft.status} onChange={(event) => setCrimeDraft((current) => ({ ...current, status: event.target.value as CriminalStatus }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="newCrimeDanger">Niveau de danger</Label>
+                    <select id="newCrimeDanger" value={crimeDraft.dangerLevel} onChange={(event) => setCrimeDraft((current) => ({ ...current, dangerLevel: event.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      <option value="">Non precise</option>
+                      <option value="LOW">Faible</option>
+                      <option value="MEDIUM">Moyen</option>
+                      <option value="HIGH">Eleve</option>
+                      <option value="CRITICAL">Critique</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="newCrimeDescription">Description *</Label>
+                    <Textarea id="newCrimeDescription" value={crimeDraft.description} onChange={(event) => setCrimeDraft((current) => ({ ...current, description: event.target.value }))} rows={3} placeholder="Decrivez les faits lies a cette infraction..." />
+                  </div>
+                </div>
+                <Button type="button" variant="outline" onClick={stageCrime}>
+                  <Plus className="mr-2 h-4 w-4" /> Ajouter a la liste
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="glass-card md:col-span-2">
           <CardHeader>
             <CardTitle className="text-lg">Pieces a conviction</CardTitle>
@@ -425,7 +549,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="evidenceFiles">Images de preuve</Label>
+                <Label htmlFor="evidenceFiles">Fichiers de preuve</Label>
                 <Input
                   id="evidenceFiles"
                   name="evidenceFiles"
@@ -438,19 +562,17 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="evidenceCategory">Categorie</Label>
-                <Select
-                  onValueChange={(value) => setValue('evidenceCategory', value as CriminalFormData['evidenceCategory'])}
-                  defaultValue="OTHER"
+                <select
+                  id="evidenceCategory"
+                  {...register('evidenceCategory')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
-                  <SelectTrigger id="evidenceCategory"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="WEAPON">Arme</SelectItem>
-                    <SelectItem value="DOCUMENT">Document</SelectItem>
-                    <SelectItem value="DIGITAL">Numerique</SelectItem>
-                    <SelectItem value="BIOLOGICAL">Biologique</SelectItem>
-                    <SelectItem value="OTHER">Autre</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="WEAPON">Arme</option>
+                  <option value="DOCUMENT">Document</option>
+                  <option value="DIGITAL">Numerique</option>
+                  <option value="BIOLOGICAL">Biologique</option>
+                  <option value="OTHER">Autre</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="collectedAt">Date de collecte</Label>

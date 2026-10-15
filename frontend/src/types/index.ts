@@ -17,6 +17,19 @@ export interface CrimeType {
   description?: string;
 }
 
+export interface CrimeRecord {
+  id: string;
+  crimeTypeId: string;
+  crimeType: CrimeType;
+  crimeDate?: string | null;
+  crimeLocation?: string | null;
+  description: string;
+  status: CriminalStatus;
+  dangerLevel?: string | null;
+  createdAt: string;
+  createdBy?: { username?: string };
+}
+
 export interface Evidence {
   id: string;
   title?: string;
@@ -51,22 +64,29 @@ export interface Criminal {
   firstName: string;
   lastName: string;
   alias?: string;
+  placeOfBirth?: string;
   birthDate?: string;
   dateOfBirth?: string;
   nationality?: string;
+  gender?: string;
   photoUrl?: string;
   photo?: string;
+  fingerprint?: string;
   crimeType: CrimeType;
   crimeTypeId?: string;
   arrestDate?: string;
   crimeDate?: string;
   arrestLocation?: string;
   crimeLocation?: string;
+  lastKnownAddress?: string;
+  phoneNumber?: string;
   status: CriminalStatus;
   dangerLevel?: string;
+  crimes?: CrimeRecord[];
   notes?: string;
   description?: string;
-  createdBy?: string;
+  createdBy?: string | { username?: string; profile?: { firstName?: string; lastName?: string; service?: string } };
+  updatedBy?: { username?: string; profile?: { firstName?: string; lastName?: string } };
   createdAt: string;
   updatedAt?: string;
   evidences?: Evidence[];

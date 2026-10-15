@@ -4,13 +4,6 @@ import { CriminalsTable } from '@/components/criminals/CriminalsTable';
 import { CriminalCard } from '@/components/criminals/CriminalCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Plus, Search, LayoutGrid, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Criminal } from '@/types';
@@ -101,36 +94,28 @@ export default function CriminalsList() {
             className="pl-9"
           />
         </div>
-        <Select value={crimeTypeFilter} onValueChange={setCrimeTypeFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Type de crime" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les types</SelectItem>
-            {crimeTypes && crimeTypes.length > 0 ? (
-              crimeTypes.map(type => (
-                <SelectItem key={type.id} value={type.id}>
-                  {type.name}
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="__none__" disabled>Aucun type disponible</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[150px]">
-            <SelectValue placeholder="Statut" />
-          </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous</SelectItem>
-              <SelectItem value="ARRESTED">Arrete</SelectItem>
-              <SelectItem value="ACTIVE">Recherche</SelectItem>
-              <SelectItem value="RELEASED">Libere</SelectItem>
-              <SelectItem value="DECEASED">Decede</SelectItem>
-              <SelectItem value="UNKNOWN">Inconnu</SelectItem>
-            </SelectContent>
-          </Select>
+        <select
+          aria-label="Filtrer par type de crime"
+          value={crimeTypeFilter}
+          onChange={(event) => setCrimeTypeFilter(event.target.value)}
+          className="flex h-10 w-full sm:w-[180px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <option value="all">Tous les types</option>
+          {crimeTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+        </select>
+        <select
+          aria-label="Filtrer par statut"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          className="flex h-10 w-full sm:w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <option value="all">Tous</option>
+          <option value="ARRESTED">Arrete</option>
+          <option value="ACTIVE">Recherche</option>
+          <option value="RELEASED">Libere</option>
+          <option value="DECEASED">Decede</option>
+          <option value="UNKNOWN">Inconnu</option>
+        </select>
         <div className="flex border rounded-md">
           <Button
             variant={viewMode === 'table' ? 'secondary' : 'ghost'}

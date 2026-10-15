@@ -47,6 +47,7 @@ interface ApiErrorPayload {
 interface AuditLogItem {
   id: string;
   action?: string;
+  entity?: string;
   createdAt?: string;
   timestamp?: string;
   userName?: string;

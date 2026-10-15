@@ -198,6 +198,37 @@ class CriminalController {
     }
   }
 
+  async getEvidenceFile(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const fileIndex = Number(req.params.fileIndex);
+      const file = await criminalService.getEvidenceFile(
+        req.params.id,
+        req.params.evidenceId,
+        fileIndex,
+      );
+
+      await auditService.createAuditLog({
+        userId: req.user!.userId,
+        action: 'VIEW',
+        entity: 'EVIDENCE',
+        entityId: req.params.evidenceId,
+        changes: { criminalId: req.params.id, fileName: file.fileName },
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      });
+
+      if (req.query.download === '1') {
+        res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+      }
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      return res.sendFile(file.filePath, (error) => {
+        if (error) next(error);
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async updateEvidence(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const evidence = await criminalService.updateEvidence(

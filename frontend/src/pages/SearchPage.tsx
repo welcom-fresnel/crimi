@@ -5,13 +5,6 @@ import { CriminalCard } from '@/components/criminals/CriminalCard';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, RotateCcw } from 'lucide-react';
 import { Criminal } from '@/types';
@@ -98,39 +91,31 @@ export default function SearchPage() {
             </div>
             <div className="space-y-2">
               <Label>Type de crime</Label>
-              <Select value={searchCrimeType} onValueChange={setSearchCrimeType}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Tous les types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les types</SelectItem>
-                  {crimeTypes && crimeTypes.length > 0 ? (
-                    crimeTypes.map(type => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="__none__" disabled>Aucun type disponible</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Filtrer par type de crime"
+                value={searchCrimeType}
+                onChange={(event) => setSearchCrimeType(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="all">Tous les types</option>
+                {crimeTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Statut</Label>
-              <Select value={searchStatus} onValueChange={setSearchStatus}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Tous les statuts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="ARRESTED">Arrete</SelectItem>
-                  <SelectItem value="ACTIVE">Recherche</SelectItem>
-                  <SelectItem value="RELEASED">Libere</SelectItem>
-                  <SelectItem value="DECEASED">Decede</SelectItem>
-                  <SelectItem value="UNKNOWN">Inconnu</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Filtrer par statut"
+                value={searchStatus}
+                onChange={(event) => setSearchStatus(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="ARRESTED">Arrete</option>
+                <option value="ACTIVE">Recherche</option>
+                <option value="RELEASED">Libere</option>
+                <option value="DECEASED">Decede</option>
+                <option value="UNKNOWN">Inconnu</option>
+              </select>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 mt-6">

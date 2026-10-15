@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner';
 import { Evidence } from '@/types';
 import { criminalsAPI } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,13 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 const categoryLabels: Record<Evidence['category'], string> = {
   WEAPON: 'Arme',
@@ -39,13 +33,6 @@ const categoryLabels: Record<Evidence['category'], string> = {
   DIGITAL: 'Numerique',
   BIOLOGICAL: 'Biologique',
   OTHER: 'Autre',
-};
-
-const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-
-const resolveFileUrl = (value: string) => {
-  if (/^https?:\/\//i.test(value)) return value;
-  return `${apiBase}${value.startsWith('/') ? value : `/${value}`}`;
 };
 
 const getFileName = (value: string) => {
@@ -78,6 +65,8 @@ interface EvidenceEditFields {
 }
 
 export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
+  const { user } = useAuth();
+  const canEditEvidence = user?.roles.some((role) => role === 'ADMIN' || role === 'AGENT') ?? false;
   const [evidences, setEvidences] = useState<Evidence[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
@@ -91,33 +80,69 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [unavailableImages, setUnavailableImages] = useState<Set<string>>(new Set());
+  const [imageSources, setImageSources] = useState<Record<string, string>>({});
 
   const imageFiles = useMemo(
     () => evidences.flatMap((evidence) =>
-      (evidence.fileUrls || [])
-        .filter(isImageFile)
-        .map((url) => ({ url, title: evidence.title || 'Piece a conviction' })),
+      (evidence.fileUrls || []).flatMap((url, fileIndex) => isImageFile(url)
+        ? [{
+            key: `${evidence.id}:${fileIndex}`,
+            evidenceId: evidence.id,
+            fileIndex,
+            title: evidence.title || 'Piece a conviction',
+            fileName: getFileName(url),
+          }]
+        : []),
     ),
     [evidences],
   );
 
   useEffect(() => {
     let active = true;
+    const createdObjectUrls: string[] = [];
     setIsLoading(true);
-    criminalsAPI.getEvidences(criminalId)
-      .then((response) => {
-        if (active && response.success) setEvidences(response.data || []);
-      })
-      .catch((error: unknown) => {
+    const loadEvidences = async () => {
+      try {
+        const response = await criminalsAPI.getEvidences(criminalId);
+        if (!response.success) return;
+        const records = response.data || [];
+        if (active) setEvidences(records);
+
+        const imageRefs = records.flatMap((evidence) =>
+          (evidence.fileUrls || []).flatMap((url, fileIndex) => isImageFile(url)
+            ? [{ key: `${evidence.id}:${fileIndex}`, evidenceId: evidence.id, fileIndex }]
+            : []),
+        );
+        const loadedImages = await Promise.all(imageRefs.map(async (image) => {
+          try {
+            const blob = await criminalsAPI.getEvidenceFile(criminalId, image.evidenceId, image.fileIndex);
+            const source = URL.createObjectURL(blob);
+            createdObjectUrls.push(source);
+            return { key: image.key, source };
+          } catch {
+            return { key: image.key, source: '' };
+          }
+        }));
+
+        if (!active) {
+          createdObjectUrls.forEach((source) => URL.revokeObjectURL(source));
+          return;
+        }
+        setImageSources(Object.fromEntries(loadedImages.filter((image) => image.source).map((image) => [image.key, image.source])));
+        setUnavailableImages(new Set(loadedImages.filter((image) => !image.source).map((image) => image.key)));
+      } catch (error) {
         console.error('Erreur de chargement des pieces a conviction:', error);
         if (active) toast.error('Impossible de charger les pieces a conviction');
-      })
-      .finally(() => {
+      } finally {
         if (active) setIsLoading(false);
-      });
+      }
+    };
+
+    void loadEvidences();
 
     return () => {
       active = false;
+      createdObjectUrls.forEach((source) => URL.revokeObjectURL(source));
     };
   }, [criminalId]);
 
@@ -166,8 +191,20 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
     }
   };
 
-  const markImageUnavailable = (url: string) => {
-    setUnavailableImages((previous) => new Set(previous).add(url));
+  const downloadEvidenceFile = async (evidenceId: string, fileIndex: number, fileName: string) => {
+    try {
+      const blob = await criminalsAPI.getEvidenceFile(criminalId, evidenceId, fileIndex, true);
+      const source = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = source;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(source), 1000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Telechargement impossible');
+    }
   };
 
   const selectedImage = previewIndex === null ? null : imageFiles[previewIndex];
@@ -197,9 +234,11 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
                     {categoryLabels[evidence.category] || categoryLabels.OTHER}
                   </span>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => beginEdit(evidence)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Modifier
-                </Button>
+                {canEditEvidence && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => beginEdit(evidence)}>
+                    <Pencil className="mr-2 h-4 w-4" /> Modifier
+                  </Button>
+                )}
               </div>
               {evidence.description && (
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{evidence.description}</p>
@@ -220,51 +259,46 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
               </div>
               {evidence.fileUrls?.length > 0 && (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {evidence.fileUrls.map((storedUrl) => {
-                    const url = resolveFileUrl(storedUrl);
+                  {evidence.fileUrls.map((storedUrl, fileIndex) => {
                     const name = getFileName(storedUrl);
-                    const imageIndex = imageFiles.findIndex((image) => image.url === storedUrl);
+                    const imageKey = `${evidence.id}:${fileIndex}`;
+                    const imageIndex = imageFiles.findIndex((image) => image.key === imageKey);
                     if (isImageFile(storedUrl)) {
                       return (
-                        <div key={storedUrl} className="relative overflow-hidden rounded-md border bg-muted">
-                          {unavailableImages.has(url) ? (
+                        <div key={imageKey} className="relative overflow-hidden rounded-md border bg-muted">
+                          {unavailableImages.has(imageKey) ? (
                             <div className="flex h-40 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                               <ImageIcon className="h-6 w-6" /> Image indisponible
                             </div>
-                          ) : (
+                          ) : imageSources[imageKey] ? (
                             <button
                               type="button"
                               className="block w-full"
                               aria-label={`Agrandir ${name}`}
                               onClick={() => setPreviewIndex(imageIndex)}
                             >
-                              <img
-                                src={url}
-                                alt={evidence.title || name}
-                                className="h-40 w-full object-cover"
-                                onError={() => markImageUnavailable(url)}
-                              />
+                              <img src={imageSources[imageKey]} alt={evidence.title || name} className="h-40 w-full object-cover" />
                             </button>
+                          ) : (
+                            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">Chargement...</div>
                           )}
-                          <a href={url} download={name} className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm bg-background/90" aria-label={`Telecharger ${name}`}>
+                          <button type="button" onClick={() => void downloadEvidenceFile(evidence.id, fileIndex, name)} className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm bg-background/90" aria-label={`Telecharger ${name}`}>
                             <Download className="h-4 w-4" />
-                          </a>
+                          </button>
                         </div>
                       );
                     }
                     return (
-                      <a
+                      <button
                         key={storedUrl}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        download={name}
+                        type="button"
+                        onClick={() => void downloadEvidenceFile(evidence.id, fileIndex, name)}
                         className="flex min-h-20 items-center gap-3 rounded-md border p-3 hover:bg-muted"
                       >
                         <FileText className="h-6 w-6 shrink-0 text-primary" />
                         <span className="min-w-0 flex-1 truncate text-sm" title={name}>{name}</span>
                         <Download className="h-4 w-4 shrink-0" />
-                      </a>
+                      </button>
                     );
                   })}
                 </div>
@@ -290,7 +324,7 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
               </DialogHeader>
               <div className="relative flex min-h-[45vh] items-center justify-center rounded bg-black">
                 <img
-                  src={resolveFileUrl(selectedImage.url)}
+                  src={imageSources[selectedImage.key]}
                   alt={selectedImage.title}
                   className="max-h-[75vh] w-full object-contain"
                 />
@@ -321,9 +355,9 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
               </div>
               <div className="flex justify-end">
                 <Button asChild variant="outline">
-                  <a href={resolveFileUrl(selectedImage.url)} download={getFileName(selectedImage.url)}>
+                  <button type="button" onClick={() => void downloadEvidenceFile(selectedImage.evidenceId, selectedImage.fileIndex, selectedImage.fileName)}>
                     <Download className="mr-2 h-4 w-4" /> Telecharger
-                  </a>
+                  </button>
                 </Button>
               </div>
             </>
@@ -348,16 +382,18 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="editEvidenceCategory">Categorie</Label>
-              <Select value={editFields.category} onValueChange={(category: Evidence['category']) => setEditFields((value) => ({ ...value, category }))}>
-                <SelectTrigger id="editEvidenceCategory"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="WEAPON">Arme</SelectItem>
-                  <SelectItem value="DOCUMENT">Document</SelectItem>
-                  <SelectItem value="DIGITAL">Numerique</SelectItem>
-                  <SelectItem value="BIOLOGICAL">Biologique</SelectItem>
-                  <SelectItem value="OTHER">Autre</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                id="editEvidenceCategory"
+                value={editFields.category}
+                onChange={(event) => setEditFields((value) => ({ ...value, category: event.target.value as Evidence['category'] }))}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="WEAPON">Arme</option>
+                <option value="DOCUMENT">Document</option>
+                <option value="DIGITAL">Numerique</option>
+                <option value="BIOLOGICAL">Biologique</option>
+                <option value="OTHER">Autre</option>
+              </select>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

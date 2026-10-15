@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Criminal, CrimeType, Evidence } from '../types';
+import { Criminal, CrimeRecord, CrimeType, Evidence, CriminalStatus } from '../types';
 
 const resolveApiUrl = () => {
   const configured = import.meta.env.VITE_API_URL as string | undefined;
@@ -119,6 +119,15 @@ interface EvidenceWritePayload {
   files?: File[];
 }
 
+interface CrimeWritePayload {
+  crimeTypeId: string;
+  crimeDate?: string;
+  crimeLocation?: string;
+  description: string;
+  status?: CriminalStatus;
+  dangerLevel?: string;
+}
+
 interface CrimeTypeWritePayload {
   name: string;
   code: string;
@@ -217,6 +226,11 @@ export const criminalsAPI = {
     return response.data;
   },
 
+  addCrime: async (id: string, data: CrimeWritePayload) => {
+    const response = await api.post<ApiResponse<CrimeRecord>>(`/criminals/${id}/crimes`, data);
+    return response.data;
+  },
+
   uploadPhoto: async (id: string, file: File) => {
     const form = new FormData();
     form.append('photo', file);
@@ -243,6 +257,15 @@ export const criminalsAPI = {
 
   getEvidences: async (id: string) => {
     const response = await api.get<ApiResponse<Evidence[]>>(`/criminals/${id}/evidences`);
+    return response.data;
+  },
+
+  getEvidenceFile: async (criminalId: string, evidenceId: string, fileIndex: number, download = false) => {
+    const downloadQuery = download ? '?download=1' : '';
+    const response = await api.get<Blob>(
+      `/criminals/${criminalId}/evidences/${evidenceId}/files/${fileIndex}${downloadQuery}`,
+      { responseType: 'blob' },
+    );
     return response.data;
   },
 

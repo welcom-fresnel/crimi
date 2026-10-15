@@ -77,6 +77,11 @@ export default function HistoryPage() {
     }
   };
 
+  const getLogSubject = (log: { entity?: string; criminalName?: string; entityId?: string }) => {
+    if (log.entity === 'EVIDENCE') return 'Piece a conviction';
+    return log.criminalName || log.entityId || '-';
+  };
+
   const getActionBadge = (action: string) => {
     const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       create: { label: 'Creation', variant: 'default' },
@@ -118,7 +123,7 @@ export default function HistoryPage() {
                     {log.userName || log.user?.username || 'Utilisateur'}
                   </div>
                   <div className="text-sm text-muted-foreground break-all">
-                    {log.criminalName || log.entityId || '-'}
+                    {getLogSubject(log)}
                   </div>
                 </div>
               ))
@@ -180,7 +185,7 @@ export default function HistoryPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm truncate max-w-[60px] block">
-                          {log.criminalName || log.entityId || '-'}
+                          {getLogSubject(log)}
                         </span>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">

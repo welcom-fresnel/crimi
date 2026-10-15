@@ -87,6 +87,12 @@ router.get('/:id', authorize('criminals', 'read'), criminalController.getCrimina
 
 router.get('/:id/evidences', authorize('criminals', 'read'), criminalController.getEvidences);
 
+router.get(
+  '/:id/evidences/:evidenceId/files/:fileIndex',
+  authorize('criminals', 'read'),
+  criminalController.getEvidenceFile,
+);
+
 router.put(
   '/:id',
   authorize('criminals', 'update'),

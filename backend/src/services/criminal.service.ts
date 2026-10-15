@@ -269,6 +269,26 @@ class CriminalService {
     return evidence;
   }
 
+  async getEvidenceFile(criminalId: string, evidenceId: string, fileIndex: number) {
+    const evidence = await this.getEvidenceById(evidenceId);
+    if (evidence.criminalId !== criminalId || !Number.isSafeInteger(fileIndex)) {
+      throw new ApiError(404, 'Fichier de preuve non trouve');
+    }
+
+    const fileUrl = evidence.fileUrls[fileIndex];
+    if (!fileUrl?.startsWith('/uploads/evidences/')) {
+      throw new ApiError(404, 'Fichier de preuve non trouve');
+    }
+
+    const evidenceRoot = path.resolve(process.cwd(), 'uploads', 'evidences');
+    const filePath = path.resolve(evidenceRoot, path.basename(fileUrl));
+    if (!filePath.startsWith(`${evidenceRoot}${path.sep}`) || !fs.existsSync(filePath)) {
+      throw new ApiError(404, 'Fichier de preuve non trouve');
+    }
+
+    return { filePath, fileName: path.basename(filePath) };
+  }
+
   async updateEvidence(criminalId: string, evidenceId: string, data: UpdateEvidenceDto) {
     const evidence = await this.getEvidenceById(evidenceId);
     if (evidence.criminalId !== criminalId) {

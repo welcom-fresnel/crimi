@@ -4,15 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/criminals/StatusBadge';
 import EvidenceSection from '@/components/criminals/EvidenceSection';
-import { ArrowLeft, Pencil, User, Calendar, MapPin, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Download, Pencil, Printer, User, Calendar, MapPin, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { criminalsAPI } from '@/services/api';
+import { createCriminalPdf, getCriminalPdfFileName } from '@/lib/criminal-pdf';
+
+const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+const normalizeUrl = (value?: string) => {
+  if (!value) return undefined;
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  return `${apiBase}${value.startsWith('/') ? value : `/${value}`}`;
+};
 
 export default function CriminalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { criminals, isLoading } = useCriminals();
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const criminal = criminals.find((c) => c.id === id);
 
@@ -30,22 +42,11 @@ export default function CriminalDetail() {
     return format(date, "d MMMM yyyy 'a' HH:mm", { locale: fr });
   };
 
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-  const normalizeUrl = (value?: string) => {
-    if (!value) return undefined;
-    if (value.startsWith('http://') || value.startsWith('https://')) return value;
-    return `${apiBase}${value.startsWith('/') ? value : `/${value}`}`;
-  };
-
   const photoImages = useMemo(() => {
-    const evidenceImages = (criminal?.evidences || [])
-      .flatMap((evidence) => evidence.fileUrls || [])
-      .map((url) => normalizeUrl(url))
-      .filter(Boolean) as string[];
-    return [normalizeUrl(criminal?.photo), ...evidenceImages]
+    return [normalizeUrl(criminal?.photo)]
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index) as string[];
-  }, [apiBase, criminal?.evidences, criminal?.photo]);
+  }, [criminal?.photo]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const currentImage = photoImages[currentImageIndex] || undefined;
   useEffect(() => {
@@ -53,6 +54,38 @@ export default function CriminalDetail() {
       setCurrentImageIndex(0);
     }
   }, [currentImageIndex, photoImages.length]);
+
+  const exportCriminalPdf = async (printAfterExport = false) => {
+    if (!criminal) return;
+    const printWindow = printAfterExport ? window.open('', '_blank') : null;
+    if (printAfterExport && !printWindow) {
+      toast.error('Impression bloquee', { description: 'Autorisez les fenetres surgissantes pour imprimer le dossier.' });
+      return;
+    }
+
+    setIsExportingPdf(true);
+    try {
+      const evidenceResponse = await criminalsAPI.getEvidences(criminal.id);
+      const pdf = await createCriminalPdf(criminal, evidenceResponse.data || []);
+      const fileName = getCriminalPdfFileName(criminal);
+
+      if (printAfterExport && printWindow) {
+        pdf.autoPrint();
+        printWindow.location.href = pdf.output('bloburl');
+      } else {
+        pdf.save(fileName);
+        toast.success('PDF telecharge', { description: fileName });
+      }
+    } catch (error) {
+      printWindow?.close();
+      console.error('Erreur de generation du PDF du dossier:', error);
+      toast.error('Export PDF impossible', {
+        description: error instanceof Error ? error.message : 'Une erreur est survenue pendant la generation du PDF.',
+      });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   if (!criminal && (isLoading || criminals.length === 0)) {
     return (
@@ -87,6 +120,14 @@ export default function CriminalDetail() {
         </div>
         <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2">
           <StatusBadge status={criminal.status} />
+          <Button variant="outline" disabled={isExportingPdf} onClick={() => void exportCriminalPdf(true)} aria-label="Imprimer le dossier PDF">
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimer
+          </Button>
+          <Button variant="outline" disabled={isExportingPdf} onClick={() => void exportCriminalPdf()} aria-label="Telecharger le dossier PDF">
+            <Download className="h-4 w-4 mr-2" />
+            {isExportingPdf ? 'Preparation...' : 'PDF'}
+          </Button>
           <Button onClick={() => navigate(`/criminals/${id}/edit`)}>
             <Pencil className="h-4 w-4 mr-2" />
             Modifier
@@ -230,6 +271,38 @@ export default function CriminalDetail() {
                   <dd className="font-medium">{criminal.arrestation?.warrantNumber || 'Non renseigne'}</dd>
                 </div>
               </dl>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="h-5 w-5" />
+                Crimes associes ({criminal.crimes?.length || 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {criminal.crimes && criminal.crimes.length > 0 ? (
+                criminal.crimes.map((crime) => (
+                  <article key={crime.id} className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-semibold">{crime.crimeType?.name || 'Type de crime inconnu'}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {[formatDate(crime.crimeDate || undefined), crime.crimeLocation].filter((value) => value && value !== 'Non renseignee').join(' · ') || 'Date et lieu non renseignes'}
+                        </p>
+                      </div>
+                      <StatusBadge status={crime.status} />
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm">{crime.description}</p>
+                    {crime.dangerLevel && (
+                      <p className="text-xs text-muted-foreground">Niveau de danger : {crime.dangerLevel}</p>
+                    )}
+                  </article>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Aucun crime supplementaire enregistre pour ce dossier.</p>
+              )}
             </CardContent>
           </Card>
 

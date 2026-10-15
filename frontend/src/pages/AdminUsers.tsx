@@ -7,13 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 
 interface CreateAgentForm {
@@ -255,18 +248,20 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <Label>Role</Label>
-              <Select value={form.roleId} onValueChange={(value) => onFormChange('roleId', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selectionner un role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {assignableRoles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                id="roleId"
+                value={form.roleId}
+                onChange={(event) => onFormChange('roleId', event.target.value)}
+                required
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="" disabled>Selectionner un role</option>
+                {assignableRoles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="md:col-span-2 flex justify-end">

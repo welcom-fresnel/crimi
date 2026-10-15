@@ -54,14 +54,14 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Ensure uploads folders exist and serve them statically
+// Ensure upload folders exist; evidence files are served only through authenticated API routes.
 const uploadsDir = path.resolve(process.cwd(), 'uploads');
 const photosDir = path.join(uploadsDir, 'photos');
 const evidencesDir = path.join(uploadsDir, 'evidences');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir);
 if (!fs.existsSync(evidencesDir)) fs.mkdirSync(evidencesDir);
-app.use('/uploads', express.static(uploadsDir, {
+app.use('/uploads/photos', express.static(photosDir, {
   setHeaders: (res) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   },
