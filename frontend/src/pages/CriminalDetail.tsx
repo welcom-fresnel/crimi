@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/criminals/StatusBadge';
 import EvidenceSection from '@/components/criminals/EvidenceSection';
-import { ArrowLeft, Download, Pencil, Printer, User, Calendar, MapPin, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Download, Pencil, Printer, User, Calendar, MapPin, FileText, ChevronLeft, ChevronRight, Shield, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { criminalsAPI } from '@/services/api';
 import { createCriminalPdf, getCriminalPdfFileName } from '@/lib/criminal-pdf';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DangerGauge, PageTransition } from '@/components/hud';
 
 const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 
@@ -112,14 +114,16 @@ export default function CriminalDetail() {
         <Button variant="ghost" size="icon" className="self-start" onClick={() => navigate('/criminals')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground break-words">
+        <div className="detail-title-block flex-1 min-w-0">
+          <p className="eyebrow-label">DOSSIER CONFIDENTIEL</p>
+          <h1 className="display-heading break-words">
             {criminal.lastName} {criminal.firstName}
           </h1>
-          <p className="text-muted-foreground break-all">{criminal.caseNumber || criminal.fileNumber}</p>
+          <p className="font-mono text-sm text-primary break-all">{criminal.caseNumber || criminal.fileNumber}</p>
         </div>
         <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2">
           <StatusBadge status={criminal.status} />
+          <DangerGauge level={criminal.dangerLevel} />
           <Button variant="outline" disabled={isExportingPdf} onClick={() => void exportCriminalPdf(true)} aria-label="Imprimer le dossier PDF">
             <Printer className="h-4 w-4 mr-2" />
             Imprimer
@@ -139,13 +143,13 @@ export default function CriminalDetail() {
         <div className="md:col-span-1">
           <Card className="glass-card">
             <CardContent className="p-6">
-              <div className="aspect-square rounded-lg bg-muted flex items-center justify-center mb-4 overflow-hidden relative">
+              <div className={`criminal-portrait aspect-square flex items-center justify-center mb-4 overflow-hidden relative status-frame-${criminal.status.toLowerCase()}`}>
                 {currentImage ? (
                   <>
                     <img
                       src={currentImage}
                       alt={`${criminal.firstName} ${criminal.lastName}`}
-                      className="h-full w-full object-cover rounded-lg"
+                      className="h-full w-full object-cover"
                     />
                     {photoImages.length > 1 && (
                       <>
@@ -184,7 +188,18 @@ export default function CriminalDetail() {
           </Card>
         </div>
 
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-2 min-w-0">
+          <Tabs defaultValue="identity" className="detail-tabs">
+            <TabsList aria-label="Sections du dossier criminel" className="detail-tab-list">
+              <TabsTrigger value="identity">Identite</TabsTrigger>
+              <TabsTrigger value="facts">Faits</TabsTrigger>
+              <TabsTrigger value="arrest">Arrestation</TabsTrigger>
+              <TabsTrigger value="evidence">Pieces</TabsTrigger>
+              <TabsTrigger value="history">Historique</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="identity" className="detail-tab-panel">
+              <PageTransition>
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -193,7 +208,7 @@ export default function CriminalDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-4 sm:grid-cols-2">
+              <dl className="detail-field-grid grid gap-4 sm:grid-cols-2">
                 <div>
                   <dt className="text-sm text-muted-foreground">Nom complet</dt>
                   <dd className="font-medium">
@@ -216,6 +231,25 @@ export default function CriminalDetail() {
             </CardContent>
           </Card>
 
+          <Card className="glass-card mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-primary" /> METADONNEES DU DOSSIER
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="detail-field-grid grid gap-4 sm:grid-cols-2">
+                <div><dt className="detail-field-label">Cree le</dt><dd className="detail-field-value font-mono">{formatDateTime(criminal.createdAt)}</dd></div>
+                <div><dt className="detail-field-label">Derniere modification</dt><dd className="detail-field-value font-mono">{formatDateTime(criminal.updatedAt)}</dd></div>
+              </dl>
+            </CardContent>
+          </Card>
+              </PageTransition>
+            </TabsContent>
+
+            <TabsContent value="facts" className="detail-tab-panel">
+              <PageTransition>
+
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -224,7 +258,7 @@ export default function CriminalDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-4 sm:grid-cols-2">
+              <dl className="detail-field-grid grid gap-4 sm:grid-cols-2">
                 <div>
                   <dt className="text-sm text-muted-foreground">Type de crime</dt>
                   <dd className="font-medium">{criminal.crimeType?.name || 'Type inconnu'}</dd>
@@ -234,41 +268,6 @@ export default function CriminalDetail() {
                   <dd>
                     <StatusBadge status={criminal.status} />
                   </dd>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Date d'arrestation</dt>
-                    <dd className="font-medium">
-                      {formatDate(
-                        criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate,
-                      )}
-                    </dd>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Lieu d'arrestation</dt>
-                    <dd className="font-medium">
-                      {criminal.arrestation?.arrestLocation ||
-                        criminal.arrestLocation ||
-                        criminal.crimeLocation ||
-                        'Non renseigne'}
-                    </dd>
-                  </div>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Unite d'intervention</dt>
-                  <dd className="font-medium">{criminal.arrestation?.arrestingUnit || 'Non renseignee'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Agent responsable</dt>
-                  <dd className="font-medium">{criminal.arrestation?.arrestingOfficer || 'Non renseigne'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Numero de mandat</dt>
-                  <dd className="font-medium">{criminal.arrestation?.warrantNumber || 'Non renseigne'}</dd>
                 </div>
               </dl>
             </CardContent>
@@ -287,17 +286,15 @@ export default function CriminalDetail() {
                   <article key={crime.id} className="space-y-2 border-b pb-4 last:border-0 last:pb-0">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <h3 className="font-semibold">{crime.crimeType?.name || 'Type de crime inconnu'}</h3>
-                        <p className="text-sm text-muted-foreground">
+                        <h3 className="section-heading">{crime.crimeType?.name || 'Type de crime inconnu'}</h3>
+                        <p className="font-mono text-xs text-muted-foreground">
                           {[formatDate(crime.crimeDate || undefined), crime.crimeLocation].filter((value) => value && value !== 'Non renseignee').join(' · ') || 'Date et lieu non renseignes'}
                         </p>
                       </div>
                       <StatusBadge status={crime.status} />
                     </div>
                     <p className="whitespace-pre-wrap text-sm">{crime.description}</p>
-                    {crime.dangerLevel && (
-                      <p className="text-xs text-muted-foreground">Niveau de danger : {crime.dangerLevel}</p>
-                    )}
+                    <DangerGauge level={crime.dangerLevel} />
                   </article>
                 ))
               ) : (
@@ -305,7 +302,23 @@ export default function CriminalDetail() {
               )}
             </CardContent>
           </Card>
+              </PageTransition>
+            </TabsContent>
 
+            <TabsContent value="arrest" className="detail-tab-panel">
+              <PageTransition>
+          <Card className="glass-card">
+            <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-4 w-4 text-primary" /> DONNEES D’ARRESTATION</CardTitle></CardHeader>
+            <CardContent>
+              <dl className="detail-field-grid grid gap-4 sm:grid-cols-2">
+                <div><dt className="detail-field-label">Date d’arrestation</dt><dd className="detail-field-value">{formatDate(criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate)}</dd></div>
+                <div><dt className="detail-field-label">Lieu d’arrestation</dt><dd className="detail-field-value">{criminal.arrestation?.arrestLocation || criminal.arrestLocation || 'Non renseigne'}</dd></div>
+                <div><dt className="detail-field-label">Unite d’intervention</dt><dd className="detail-field-value">{criminal.arrestation?.arrestingUnit || 'Non renseignee'}</dd></div>
+                <div><dt className="detail-field-label">Agent responsable</dt><dd className="detail-field-value">{criminal.arrestation?.arrestingOfficer || 'Non renseigne'}</dd></div>
+                <div><dt className="detail-field-label">Numero de mandat</dt><dd className="detail-field-value font-mono">{criminal.arrestation?.warrantNumber || 'Non renseigne'}</dd></div>
+              </dl>
+            </CardContent>
+          </Card>
           {criminal.arrestation?.notes && (
             <Card className="glass-card">
               <CardHeader>
@@ -316,7 +329,6 @@ export default function CriminalDetail() {
               </CardContent>
             </Card>
           )}
-
           {criminal.notes && (
             <Card className="glass-card">
               <CardHeader>
@@ -327,32 +339,28 @@ export default function CriminalDetail() {
               </CardContent>
             </Card>
           )}
+              </PageTransition>
+            </TabsContent>
 
+            <TabsContent value="evidence" className="detail-tab-panel">
+              <PageTransition>
           <EvidenceSection criminalId={criminal.id} />
+              </PageTransition>
+            </TabsContent>
 
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="text-lg">Metadonnees</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm text-muted-foreground">Cree le</dt>
-                  <dd className="font-medium">
-                    {formatDateTime(criminal.createdAt)}
-                  </dd>
-                </div>
-                {criminal.updatedAt && (
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Derniere modification</dt>
-                    <dd className="font-medium">
-                      {formatDateTime(criminal.updatedAt)}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </CardContent>
-          </Card>
+            <TabsContent value="history" className="detail-tab-panel">
+              <PageTransition>
+                <Card className="glass-card">
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-primary" /> CHRONOLOGIE DU DOSSIER</CardTitle></CardHeader>
+                  <CardContent className="detail-history-list">
+                    <div className="detail-history-entry"><span className="detail-history-dot" /><div><p className="font-medium">Dossier cree</p><time className="font-mono text-xs text-muted-foreground">{formatDateTime(criminal.createdAt)}</time></div></div>
+                    {criminal.crimes?.map((crime) => <div key={crime.id} className="detail-history-entry"><span className="detail-history-dot is-info" /><div><p className="font-medium">Crime ajoute · {crime.crimeType?.name || 'Type inconnu'}</p><time className="font-mono text-xs text-muted-foreground">{formatDateTime(crime.createdAt)}</time></div></div>)}
+                    {criminal.updatedAt && criminal.updatedAt !== criminal.createdAt && <div className="detail-history-entry"><span className="detail-history-dot is-current" /><div><p className="font-medium">Derniere mise a jour du dossier</p><time className="font-mono text-xs text-muted-foreground">{formatDateTime(criminal.updatedAt)}</time></div></div>}
+                  </CardContent>
+                </Card>
+              </PageTransition>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

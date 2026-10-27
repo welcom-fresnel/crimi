@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
 import { Eye, Pencil, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { DangerGauge } from '@/components/hud';
 
 interface CriminalCardProps {
   criminal: Criminal;
@@ -11,19 +12,20 @@ interface CriminalCardProps {
 
 export function CriminalCard({ criminal }: CriminalCardProps) {
   const navigate = useNavigate();
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  const apiBase = apiUrl?.trim() ? apiUrl.replace(/\/api\/?$/, '') : `http://${window.location.hostname}:5000`;
   const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
 
   return (
-    <Card className="glass-card hover:shadow-md transition-shadow">
+    <Card className={`criminal-record-card glass-card status-frame-${criminal.status.toLowerCase()}`}>
       <CardContent className="p-4">
-        <div className="flex gap-4">
-            <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+        <div className="flex gap-3">
+            <div className="criminal-record-photo h-20 w-20 bg-surface-elevated flex items-center justify-center flex-shrink-0">
             {photoSrc ? (
               <img
                 src={photoSrc}
                 alt={`${criminal.firstName} ${criminal.lastName}`}
-                className="h-full w-full object-cover rounded-lg"
+                className="h-full w-full object-cover"
               />
             ) : (
               <User className="h-10 w-10 text-muted-foreground" />
@@ -32,13 +34,14 @@ export function CriminalCard({ criminal }: CriminalCardProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="font-semibold text-foreground truncate">
+                <h3 className="font-display text-lg font-bold uppercase tracking-[0.03em] text-foreground truncate">
                   {criminal.lastName} {criminal.firstName}
                 </h3>
-                <p className="text-sm text-muted-foreground">{criminal.caseNumber || criminal.fileNumber}</p>
+                <p className="font-mono text-xs text-muted-foreground">{criminal.caseNumber || criminal.fileNumber}</p>
               </div>
               <StatusBadge status={criminal.status} />
             </div>
+            <div className="mt-2"><DangerGauge level={criminal.dangerLevel} /></div>
             <div className="mt-2 space-y-1">
               <p className="text-sm">
                 <span className="text-muted-foreground">Crime :</span>{' '}
@@ -57,8 +60,8 @@ export function CriminalCard({ criminal }: CriminalCardProps) {
             className="flex-1"
             onClick={() => navigate(`/criminals/${criminal.id}`)}
           >
-            <Eye className="h-4 w-4 mr-1" />
-            Voir
+            <Eye className="h-4 w-4" />
+            Ouvrir
           </Button>
           <Button
             variant="outline"

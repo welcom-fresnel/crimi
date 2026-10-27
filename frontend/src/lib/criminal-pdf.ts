@@ -8,7 +8,16 @@ const MARGIN = 18;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const BODY_COLOR: [number, number, number] = [31, 41, 55];
 const MUTED_COLOR: [number, number, number] = [91, 103, 120];
-const ACCENT_COLOR: [number, number, number] = [22, 76, 92];
+const ACCENT_COLOR: [number, number, number] = [245, 166, 35];
+const HEADER_COLOR: [number, number, number] = [7, 11, 16];
+const SECTION_COLOR: [number, number, number] = [18, 28, 39];
+const STATUS_COLORS: Record<string, [number, number, number]> = {
+  ACTIVE: [239, 68, 68],
+  ARRESTED: [56, 189, 248],
+  RELEASED: [34, 197, 94],
+  DECEASED: [100, 116, 139],
+  UNKNOWN: [100, 116, 139],
+};
 const FIELD_GAP = 4;
 const LABEL_SIZE = 8;
 const VALUE_SIZE = 9;
@@ -90,20 +99,46 @@ const truncateText = (pdf: jsPDF, text: string, maxWidth: number) => {
 export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[]) {
   const { jsPDF: JsPdfConstructor } = await import('jspdf');
   const pdf = new JsPdfConstructor({ unit: 'mm', format: 'a4', compress: true });
-  let cursorY = MARGIN;
+  const fullName = `${criminal.lastName} ${criminal.firstName}`.trim();
+  const caseNumber = displayValue(criminal.caseNumber || criminal.fileNumber);
+  let cursorY = 42;
+
+  const addPageHeader = () => {
+    pdf.setFillColor(...HEADER_COLOR);
+    pdf.rect(0, 0, PAGE_WIDTH, 36, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(17);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('DOSSIER CRIMINEL', MARGIN, 12);
+    pdf.setFontSize(10);
+    pdf.setTextColor(230, 237, 243);
+    pdf.text(pdf.splitTextToSize(fullName || 'Dossier sans nom', CONTENT_WIDTH), MARGIN, 20);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(130, 150, 168);
+    pdf.text(`N° ${caseNumber}`, MARGIN, 27);
+    pdf.setDrawColor(...ACCENT_COLOR);
+    pdf.setLineWidth(0.8);
+    pdf.line(MARGIN, 33, PAGE_WIDTH - MARGIN, 33);
+  };
+
+  addPageHeader();
 
   const ensureSpace = (height: number) => {
     if (cursorY + height > PAGE_HEIGHT - MARGIN) {
       pdf.addPage();
-      cursorY = MARGIN;
+      addPageHeader();
+      cursorY = 42;
     }
   };
 
   const addSection = (title: string) => {
     ensureSpace(12);
     cursorY += 1;
+    pdf.setFillColor(...SECTION_COLOR);
+    pdf.rect(MARGIN, cursorY - 3.5, CONTENT_WIDTH, 8, 'F');
     pdf.setFillColor(...ACCENT_COLOR);
-    pdf.roundedRect(MARGIN, cursorY - 3.5, CONTENT_WIDTH, 8, 1.5, 1.5, 'F');
+    pdf.rect(MARGIN, cursorY - 3.5, 1.4, 8, 'F');
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
     pdf.setTextColor(255, 255, 255);
@@ -139,10 +174,38 @@ export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[
       pdf.setTextColor(...MUTED_COLOR);
       pdf.text(field.labelLines, x, cursorY);
       const valueY = cursorY + field.labelLines.length * LABEL_LINE_HEIGHT + 0.8;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(VALUE_SIZE);
-      pdf.setTextColor(...BODY_COLOR);
-      pdf.text(field.valueLines, x, valueY);
+      const normalizedLabel = field.field.label.toLocaleLowerCase('fr');
+      const normalizedValue = (field.field.value || '').toUpperCase();
+      const isStatus = normalizedLabel.includes('statut');
+      const isDanger = normalizedLabel.includes('danger');
+      if (isStatus && STATUS_COLORS[normalizedValue]) {
+        const badgeColor = STATUS_COLORS[normalizedValue];
+        const badgeText = displayValue(field.field.value).toUpperCase();
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.5);
+        const badgeWidth = Math.min(field.width - 1, pdf.getTextWidth(badgeText) + 4);
+        pdf.setFillColor(...badgeColor);
+        pdf.rect(x, valueY - 2.8, badgeWidth, 4.4, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(truncateText(pdf, badgeText, badgeWidth - 2), x + 1, valueY);
+      } else if (isDanger && field.field.value) {
+        const dangerValue = normalizedValue;
+        const segments = dangerValue === 'LOW' ? 1 : dangerValue === 'MEDIUM' ? 2 : dangerValue === 'HIGH' ? 3 : dangerValue === 'CRITICAL' ? 4 : 0;
+        const dangerColor: [number, number, number] = segments < 2 ? [34, 197, 94] : segments === 2 ? [245, 166, 35] : [239, 68, 68];
+        for (let segment = 0; segment < 4; segment += 1) {
+          pdf.setFillColor(...(segment < segments ? dangerColor : [205, 211, 217]));
+          pdf.rect(x + segment * 3, valueY - 2.1, 2.2, 2.5, 'F');
+        }
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(...dangerColor);
+        pdf.text(displayValue(field.field.value).toUpperCase(), x + 14, valueY);
+      } else {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(VALUE_SIZE);
+        pdf.setTextColor(...BODY_COLOR);
+        pdf.text(field.valueLines, x, valueY);
+      }
       columnIndex += field.span;
     }
     cursorY += rowHeight + 1;
@@ -188,25 +251,6 @@ export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[
     pdf.text(truncateText(pdf, text, CONTENT_WIDTH - 2), MARGIN + 1, cursorY);
     cursorY += 5;
   };
-
-  const fullName = `${criminal.lastName} ${criminal.firstName}`.trim();
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(18);
-  pdf.setTextColor(...ACCENT_COLOR);
-  pdf.text('DOSSIER CRIMINEL', MARGIN, cursorY + 4);
-  cursorY += 9;
-  pdf.setFontSize(12);
-  pdf.setTextColor(...BODY_COLOR);
-  pdf.text(pdf.splitTextToSize(fullName, CONTENT_WIDTH), MARGIN, cursorY + 3);
-  cursorY += 6;
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9);
-  pdf.setTextColor(...MUTED_COLOR);
-  pdf.text(`Numero de dossier : ${displayValue(criminal.caseNumber || criminal.fileNumber)}`, MARGIN, cursorY + 2);
-  cursorY += 7;
-  pdf.setDrawColor(210, 218, 225);
-  pdf.line(MARGIN, cursorY, PAGE_WIDTH - MARGIN, cursorY);
-  cursorY += 4;
 
   addFieldRow([
     { label: 'Rapport genere le', value: new Date().toLocaleString('fr-FR') },

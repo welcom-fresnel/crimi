@@ -13,6 +13,7 @@ import { Eye, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { DangerGauge } from '@/components/hud';
 
 interface CriminalsTableProps {
   criminals: Criminal[];
@@ -29,7 +30,7 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
   };
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="criminals-table-shell hud-card">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -40,6 +41,7 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
               <TableHead className="hidden lg:table-cell min-w-[120px]">Date</TableHead>
               <TableHead className="hidden md:table-cell min-w-[80px]">Lieu</TableHead>
               <TableHead className="min-w-[80px]">Statut</TableHead>
+              <TableHead className="hidden lg:table-cell min-w-[110px]">Danger</TableHead>
               <TableHead className="text-right min-w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -47,7 +49,7 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
             {criminals.map(criminal => (
               <TableRow key={criminal.id}>
                 <TableCell className="font-medium text-xs sm:text-sm">
-                  {criminal.caseNumber || criminal.fileNumber}
+                  <span className="font-mono text-xs">{criminal.caseNumber || criminal.fileNumber}</span>
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">
@@ -80,12 +82,16 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
                 <TableCell>
                   <StatusBadge status={criminal.status} />
                 </TableCell>
+                <TableCell className="hidden lg:table-cell">
+                  <DangerGauge level={criminal.dangerLevel} />
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
+                      aria-label={`Ouvrir le dossier ${criminal.caseNumber || criminal.fileNumber}`}
                       onClick={() => navigate(`/criminals/${criminal.id}`)}
                     >
                       <Eye className="h-3 w-3" />
@@ -94,6 +100,7 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 hidden sm:flex"
+                      aria-label={`Modifier le dossier ${criminal.caseNumber || criminal.fileNumber}`}
                       onClick={() => navigate(`/criminals/${criminal.id}/edit`)}
                     >
                       <Pencil className="h-3 w-3" />

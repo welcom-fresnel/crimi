@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useCriminals } from '@/contexts/CriminalsContext';
 import { CriminalsTable } from '@/components/criminals/CriminalsTable';
 import { CriminalCard } from '@/components/criminals/CriminalCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, LayoutGrid, List } from 'lucide-react';
+import { Plus, Search, LayoutGrid, List, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Criminal } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AnimatedNumber, SectionHeader } from '@/components/hud';
 import {
   Pagination,
   PaginationContent,
@@ -22,6 +24,7 @@ export default function CriminalsList() {
   const navigate = useNavigate();
   const { criminals, crimeTypes } = useCriminals();
   const isMobile = useIsMobile();
+  const prefersReducedMotion = useReducedMotion();
   const [searchQuery, setSearchQuery] = useState('');
   const [crimeTypeFilter, setCrimeTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -73,10 +76,11 @@ export default function CriminalsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="page-heading flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Liste des criminels</h1>
-          <p className="text-muted-foreground">{filteredCriminals.length} dossier(s) trouve(s)</p>
+          <p className="eyebrow-label">REGISTRE OPERATIONNEL</p>
+          <h1 className="display-heading">DOSSIERS CRIMINELS</h1>
+          <p className="text-sm text-muted-foreground"><AnimatedNumber value={filteredCriminals.length} className="font-mono text-foreground" /> dossier(s) correspondant(s)</p>
         </div>
         <Button onClick={() => navigate('/criminals/new')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -84,7 +88,7 @@ export default function CriminalsList() {
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="criminal-filter-bar flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -94,20 +98,24 @@ export default function CriminalsList() {
             className="pl-9"
           />
         </div>
+        <label className="sr-only" htmlFor="criminal-filter-type">Filtrer par type de crime</label>
         <select
+          id="criminal-filter-type"
           aria-label="Filtrer par type de crime"
           value={crimeTypeFilter}
           onChange={(event) => setCrimeTypeFilter(event.target.value)}
-          className="flex h-10 w-full sm:w-[180px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="hud-input flex h-10 w-full rounded-sm border border-input bg-surface-elevated px-3 py-2 text-sm sm:w-[190px]"
         >
           <option value="all">Tous les types</option>
           {crimeTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
         </select>
+        <label className="sr-only" htmlFor="criminal-filter-status">Filtrer par statut</label>
         <select
+          id="criminal-filter-status"
           aria-label="Filtrer par statut"
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
-          className="flex h-10 w-full sm:w-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="hud-input flex h-10 w-full rounded-sm border border-input bg-surface-elevated px-3 py-2 text-sm sm:w-[160px]"
         >
           <option value="all">Tous</option>
           <option value="ARRESTED">Arrete</option>
@@ -116,10 +124,12 @@ export default function CriminalsList() {
           <option value="DECEASED">Decede</option>
           <option value="UNKNOWN">Inconnu</option>
         </select>
-        <div className="flex border rounded-md">
+        <div className="view-toggle flex border border-border" role="group" aria-label="Mode d’affichage">
           <Button
             variant={viewMode === 'table' ? 'secondary' : 'ghost'}
             size="icon"
+            aria-label="Afficher en tableau"
+            aria-pressed={viewMode === 'table'}
             onClick={() => setViewMode('table')}
           >
             <List className="h-4 w-4" />
@@ -127,6 +137,8 @@ export default function CriminalsList() {
           <Button
             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
             size="icon"
+            aria-label="Afficher en fiches"
+            aria-pressed={viewMode === 'grid'}
             onClick={() => setViewMode('grid')}
           >
             <LayoutGrid className="h-4 w-4" />
@@ -134,19 +146,31 @@ export default function CriminalsList() {
         </div>
       </div>
 
-      {viewMode === 'table' ? (
-        <CriminalsTable criminals={pagedCriminals} />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {pagedCriminals.map(criminal => (
-            <CriminalCard key={criminal.id} criminal={criminal} />
-          ))}
+      {(searchQuery || crimeTypeFilter !== 'all' || statusFilter !== 'all') && (
+        <div className="active-filter-chips" aria-label="Filtres actifs">
+          {searchQuery && <button type="button" className="filter-chip" onClick={() => setSearchQuery('')}>TEXTE · {searchQuery} <X aria-hidden="true" /></button>}
+          {crimeTypeFilter !== 'all' && <button type="button" className="filter-chip" onClick={() => setCrimeTypeFilter('all')}>TYPE · {crimeTypes.find((type) => type.id === crimeTypeFilter)?.name || 'Selectionne'} <X aria-hidden="true" /></button>}
+          {statusFilter !== 'all' && <button type="button" className="filter-chip" onClick={() => setStatusFilter('all')}>STATUT · {statusFilter} <X aria-hidden="true" /></button>}
         </div>
       )}
 
+      <motion.div layout={!prefersReducedMotion} transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.22 }}>
+        {viewMode === 'table' ? (
+          <CriminalsTable criminals={pagedCriminals} />
+        ) : (
+          <motion.div layout className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {pagedCriminals.map((criminal, index) => (
+              <motion.div key={criminal.id} layout={!prefersReducedMotion} initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: prefersReducedMotion ? 0 : 0.2, delay: prefersReducedMotion ? 0 : index * 0.04 }}>
+                <CriminalCard criminal={criminal} />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </motion.div>
+
       {filteredCriminals.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Aucun dossier trouve</p>
+          <div className="empty-state"><SectionHeader title="AUCUN DOSSIER" description="Aucun dossier ne correspond aux filtres selectionnes." /></div>
         </div>
       )}
 

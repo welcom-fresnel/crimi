@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, RotateCcw } from 'lucide-react';
 import { Criminal } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AnimatedNumber, SectionHeader } from '@/components/hud';
 
 export default function SearchPage() {
   const { criminals, crimeTypes } = useCriminals();
@@ -58,14 +59,15 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Recherche avancée</h1>
-        <p className="text-muted-foreground">Recherchez des dossiers criminels avec des filtres précis</p>
+      <div className="page-heading">
+        <p className="eyebrow-label">INTERROGATION DU REGISTRE</p>
+        <h1 className="display-heading">RECHERCHE AVANCEE</h1>
+        <p className="text-sm text-muted-foreground">Filtrez les dossiers autorises par identite et criteres operationnels.</p>
       </div>
 
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="text-lg">Critères de recherche</CardTitle>
+          <CardTitle>CRITERES DE RECHERCHE</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -95,7 +97,7 @@ export default function SearchPage() {
                 aria-label="Filtrer par type de crime"
                 value={searchCrimeType}
                 onChange={(event) => setSearchCrimeType(event.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="hud-input flex h-10 w-full rounded-sm border border-input bg-surface-elevated px-3 py-2 text-sm"
               >
                 <option value="all">Tous les types</option>
                 {crimeTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
@@ -107,7 +109,7 @@ export default function SearchPage() {
                 aria-label="Filtrer par statut"
                 value={searchStatus}
                 onChange={(event) => setSearchStatus(event.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="hud-input flex h-10 w-full rounded-sm border border-input bg-surface-elevated px-3 py-2 text-sm"
               >
                 <option value="all">Tous les statuts</option>
                 <option value="ARRESTED">Arrete</option>
@@ -118,7 +120,7 @@ export default function SearchPage() {
               </select>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 mt-6">
+          <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row">
             <Button onClick={handleSearch} className="w-full sm:w-auto">
               <Search className="h-4 w-4 mr-2" />
               Rechercher
@@ -134,7 +136,7 @@ export default function SearchPage() {
       {results !== null && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">
-            Résultats ({results.length} dossier{results.length > 1 ? 's' : ''} trouvé{results.length > 1 ? 's' : ''})
+            RESULTATS · <AnimatedNumber value={results.length} className="font-mono text-primary" /> DOSSIER(S)
           </h2>
           {results.length > 0 ? (
             isMobile ? (
@@ -149,7 +151,7 @@ export default function SearchPage() {
           ) : (
             <Card className="glass-card">
               <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Aucun dossier ne correspond à vos critères</p>
+                <SectionHeader title="AUCUN RESULTAT" description="Aucun dossier ne correspond aux criteres actifs." />
               </CardContent>
             </Card>
           )}

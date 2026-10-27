@@ -97,15 +97,16 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Mon profil</h1>
-        <p className="text-muted-foreground">
+        <p className="eyebrow-label">IDENTITE DE SESSION</p>
+        <h1 className="display-heading">PROFIL AGENT</h1>
+        <p className="text-sm text-muted-foreground">
           Consultez vos informations, changez votre mot de passe et suivez vos activites.
         </p>
       </div>
 
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle>Informations personnelles (lecture seule)</CardTitle>
+          <CardTitle>IDENTITE AGENT · LECTURE SEULE</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -141,7 +142,7 @@ export default function ProfilePage() {
 
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle>Changer le mot de passe</CardTitle>
+          <CardTitle>SECURITE DU COMPTE</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={onChangePassword} className="grid gap-4 md:grid-cols-3">
@@ -188,7 +189,7 @@ export default function ProfilePage() {
 
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle>Mon historique d'activites</CardTitle>
+          <CardTitle>MON JOURNAL D’ACTIVITE</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -210,7 +211,7 @@ export default function ProfilePage() {
               const dateValue = log.timestamp || log.createdAt;
 
               return (
-                <div key={log.id} className="rounded-lg border bg-background/60 p-3 flex items-center justify-between gap-3">
+                <div key={log.id} className="profile-audit-row flex items-center justify-between gap-3 border border-border bg-surface p-3">
                   <div>
                     <p className="font-medium text-sm">{label}</p>
                     <p className="text-xs text-muted-foreground">

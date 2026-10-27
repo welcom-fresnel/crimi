@@ -13,6 +13,7 @@ import { History, Plus, Pencil, Trash2, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useEffect, useState } from 'react';
+import { Input } from '@/components/ui/input';
 import {
   Pagination,
   PaginationContent,
@@ -33,6 +34,8 @@ interface ChangeValue {
 export default function HistoryPage() {
   const { auditLogs } = useCriminals();
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [actionFilter, setActionFilter] = useState('all');
   const pageSize = 10;
   const formatDateSafe = (value?: string, pattern = 'dd/MM/yyyy') => {
     if (!value) return '-';
@@ -41,14 +44,22 @@ export default function HistoryPage() {
     return format(date, pattern, { locale: fr });
   };
 
+  const filteredLogs = auditLogs.filter((log) => {
+    const query = searchQuery.trim().toLocaleLowerCase('fr');
+    const matchesQuery = !query || [log.userName, log.user?.username, log.criminalName, log.entityId, log.entity]
+      .some((value) => value?.toLocaleLowerCase('fr').includes(query));
+    const matchesAction = actionFilter === 'all' || (log.action || '').toLowerCase() === actionFilter;
+    return matchesQuery && matchesAction;
+  });
+
   useEffect(() => {
     setPage(1);
-  }, [auditLogs.length]);
+  }, [auditLogs.length, searchQuery, actionFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(auditLogs.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const startIndex = (currentPage - 1) * pageSize;
-  const pagedLogs = auditLogs.slice(startIndex, startIndex + pageSize);
+  const pagedLogs = filteredLogs.slice(startIndex, startIndex + pageSize);
 
   const getPageNumbers = () => {
     const pages: number[] = [];
@@ -97,8 +108,22 @@ export default function HistoryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Historique des actions</h1>
-        <p className="text-muted-foreground">Tracabilite complete des operations effectuees</p>
+        <p className="eyebrow-label">CONTROLE ET TRACABILITE</p>
+        <h1 className="display-heading">HISTORIQUE DES ACTIONS</h1>
+        <p className="text-sm text-muted-foreground">Journal de consultation et d’operations du systeme.</p>
+      </div>
+
+      <div className="history-filter-bar">
+        <Input aria-label="Rechercher dans l’historique" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Utilisateur, dossier ou entite..." />
+        <select aria-label="Filtrer par action" value={actionFilter} onChange={(event) => setActionFilter(event.target.value)} className="hud-input h-10 rounded-sm border border-input bg-surface-elevated px-3 text-sm sm:w-52">
+          <option value="all">Toutes les actions</option>
+          <option value="create">Creation</option>
+          <option value="update">Modification</option>
+          <option value="delete">Suppression</option>
+          <option value="view">Consultation</option>
+          <option value="login">Connexion</option>
+          <option value="logout">Deconnexion</option>
+        </select>
       </div>
 
       <Card className="glass-card">
@@ -115,7 +140,7 @@ export default function HistoryPage() {
                 <div key={log.id} className="rounded-lg border p-3 space-y-2 bg-background/70">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-xs text-muted-foreground">
-                      {formatDateSafe(log.createdAt || log.timestamp, 'dd/MM/yyyy HH:mm')}
+                      <span className="font-mono">{formatDateSafe(log.createdAt || log.timestamp, 'dd/MM/yyyy HH:mm')}</span>
                     </div>
                     {getActionBadge((log.action || 'view').toLowerCase())}
                   </div>
@@ -148,7 +173,7 @@ export default function HistoryPage() {
               pagedLogs.map((log) => (
                 <TableRow key={log.id}>
                       <TableCell className="whitespace-nowrap">
-                        <div className="text-sm">
+                        <div className="font-mono text-xs">
                           {formatDateSafe(log.createdAt || log.timestamp, 'dd/MM/yyyy')}
                           <br />
                           <span className="text-muted-foreground text-xs">
@@ -223,7 +248,7 @@ export default function HistoryPage() {
           </TableBody>
         </Table>
       </div>
-      {auditLogs.length > pageSize && (
+      {filteredLogs.length > pageSize && (
         <Pagination className="mt-6">
           <PaginationContent>
             <PaginationItem>

@@ -48,40 +48,32 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-black p-6">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <svg className="w-full h-full opacity-10" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
-              <rect width="80" height="80" fill="none" />
-              <rect x="0" y="0" width="1" height="80" fill="currentColor" />
-              <rect x="0" y="0" width="80" height="1" fill="currentColor" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" className="text-slate-800" />
-        </svg>
-      </div>
+    <div className="login-screen relative flex min-h-screen items-center justify-center overflow-hidden p-4 sm:p-6">
+      <div className="login-scan-line" aria-hidden="true" />
 
-      <div className="w-full max-w-md mx-auto px-4">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-primary mb-4 shadow-lg">
-            <Shield className="h-8 w-8 sm:h-10 sm:w-10 text-primary-foreground" />
+      <div className="relative z-10 mx-auto w-full max-w-md px-2">
+        <div className="mb-6 text-center">
+          <div className="login-shield mx-auto mb-4 flex h-16 w-16 items-center justify-center sm:h-20 sm:w-20">
+            <Shield className="h-8 w-8 text-primary sm:h-10 sm:w-10" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white text-foreground">SGAC</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground tracking-wider">Systeme de Gestion des Antecedents Criminels</p>
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.24em] text-info">RESEAU SECURISE · CG</p>
+          <h1 className="font-display text-4xl font-bold tracking-[0.12em] text-foreground sm:text-5xl">SGEC</h1>
+          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-muted-foreground">Acces restreint · Personnel autorise uniquement</p>
         </div>
 
-        <Card className="overflow-hidden shadow-2xl rounded-xl border border-white/5 bg-black/50 backdrop-blur-md">
-          <div className="p-6">
+        <Card className="login-panel overflow-hidden">
+          <div className="border-b border-border px-5 py-4 sm:px-6">
             <CardHeader>
-              <CardTitle className="text-lg text-white">Connexion</CardTitle>
-              <CardDescription>Accedez a votre espace securise</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <span className="h-4 w-[2px] bg-primary" /> Authentification agent
+              </CardTitle>
+              <CardDescription>Identifiez-vous pour ouvrir une session securisee.</CardDescription>
             </CardHeader>
           </div>
-          <CardContent className="pt-0 px-6 pb-6">
+          <CardContent className="px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-white">Nom d'utilisateur</Label>
+                <Label htmlFor="username">Identifiant agent</Label>
                 <Input
                   id="username"
                   name="username"
@@ -94,7 +86,7 @@ export default function Login() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-white">Mot de passe</Label>
+                <Label htmlFor="password">Mot de passe</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -118,8 +110,8 @@ export default function Login() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg tracking-wider uppercase shadow-md" disabled={isSubmitting || isLoading}>
-                {(isSubmitting || isLoading) ? 'Connexion...' : 'SE CONNECTER'}
+              <Button type="submit" className="w-full" disabled={isSubmitting || isLoading}>
+                {(isSubmitting || isLoading) ? 'Verification...' : "S'AUTHENTIFIER"}
               </Button>
             </form>
 
@@ -127,8 +119,8 @@ export default function Login() {
               <p className="text-xs text-muted-foreground">Reserve aux agents autorises uniquement</p>
             </div>
 
-            <div className="mt-6 border-t border-muted-foreground/20 pt-4">
-              <div className="flex items-start gap-3 text-sm text-red-400">
+            <div className="mt-5 border-t border-border pt-4">
+              <div className="flex items-start gap-3 text-sm text-danger">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-none" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l4.516 8.03c.75 1.333-.213 2.971-1.742 2.971H5.483C3.954 14.1 2.992 12.463 3.742 11.13l4.515-8.03zM9 8a1 1 0 112 0v3a1 1 0 11-2 0V8zm1 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 15z" clipRule="evenodd" />
                 </svg>
@@ -141,7 +133,7 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        <p className="mt-8 text-center text-xs text-muted-foreground">(c) 2026 Division Technique de la Police Nationale.</p>
+        <p className="mt-6 text-center font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">CONFIDENTIEL · SGEC · REPUBLIQUE DU CONGO</p>
       </div>
     </div>
   );

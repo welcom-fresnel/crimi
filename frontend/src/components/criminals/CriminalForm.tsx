@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 
 const criminalSchema = z.object({
   firstName: z.string().min(2, 'Le prenom est requis'),
@@ -67,6 +67,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
     status: 'ACTIVE' as CriminalStatus,
     dangerLevel: '',
   });
+  const [activeFormStep, setActiveFormStep] = useState(0);
   const nationalityOptions = useMemo(() => {
     const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
     if (!supportedValuesOf || typeof Intl.DisplayNames === 'undefined') {
@@ -300,14 +301,43 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
     { value: 'UNKNOWN', label: 'Inconnu' },
   ];
 
+  const formSteps = [
+    { id: 'criminal-step-identity', label: 'Identite' },
+    { id: 'criminal-step-facts', label: 'Faits et arrestation' },
+    ...(isEditing ? [{ id: 'criminal-step-crimes', label: 'Infractions' }] : []),
+    { id: 'criminal-step-evidence', label: 'Pieces' },
+  ];
+
+  const goToFormStep = (index: number) => {
+    setActiveFormStep(index);
+    document.getElementById(formSteps[index].id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      <nav className="form-stepper" aria-label="Sections du formulaire">
+        <div className="form-stepper-track" aria-hidden="true">
+          <span style={{ width: `${formSteps.length > 1 ? (activeFormStep / (formSteps.length - 1)) * 100 : 100}%` }} />
+        </div>
+        {formSteps.map((step, index) => (
+          <button
+            key={step.id}
+            type="button"
+            className={`form-step ${index === activeFormStep ? 'is-active' : ''} ${index < activeFormStep ? 'is-complete' : ''}`}
+            aria-current={index === activeFormStep ? 'step' : undefined}
+            onClick={() => goToFormStep(index)}
+          >
+            <span className="form-step-index">{index < activeFormStep ? <Check aria-hidden="true" className="h-3.5 w-3.5" /> : `0${index + 1}`}</span>
+            <span className="form-step-label">{step.label}</span>
+          </button>
+        ))}
+      </nav>
       <div className="mb-4">
         <Label htmlFor="photo">Photo du criminel</Label>
         <input id="photo" name="photo" type="file" accept="image/*" />
       </div>
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="glass-card">
+        <Card id="criminal-step-identity" className="glass-card form-step-section">
           <CardHeader>
             <CardTitle className="text-lg">Identite</CardTitle>
           </CardHeader>
@@ -354,7 +384,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
+        <Card id="criminal-step-facts" className="glass-card form-step-section">
           <CardHeader>
             <CardTitle className="text-lg">Informations criminelles</CardTitle>
           </CardHeader>
@@ -447,7 +477,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
         </Card>
 
         {isEditing && criminal && (
-          <Card className="glass-card md:col-span-2">
+          <Card id="criminal-step-crimes" className="glass-card md:col-span-2 form-step-section">
             <CardHeader>
               <CardTitle className="text-lg">Infractions liees au dossier</CardTitle>
             </CardHeader>
@@ -534,7 +564,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           </Card>
         )}
 
-        <Card className="glass-card md:col-span-2">
+        <Card id="criminal-step-evidence" className="glass-card md:col-span-2 form-step-section">
           <CardHeader>
             <CardTitle className="text-lg">Pieces a conviction</CardTitle>
           </CardHeader>

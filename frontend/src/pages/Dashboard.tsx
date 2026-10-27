@@ -1,14 +1,19 @@
 import { useCriminals } from '@/contexts/CriminalsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserCheck, UserX, AlertTriangle, Clock, User } from 'lucide-react';
+import { AnimatedNumber, HudCard, SectionHeader } from '@/components/hud';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { Users, UserCheck, UserX, AlertTriangle, Clock, User, ArrowUpRight, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function Dashboard() {
   const { criminals } = useCriminals();
   const { user } = useAuth();
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
+  const apiBase = ((import.meta.env.VITE_API_URL as string | undefined) || `http://${window.location.hostname}:5000/api`).replace(/\/api\/?$/, '');
 
   const stats = {
     total: criminals.length,
@@ -30,15 +35,15 @@ export default function Dashboard() {
       title: 'Arretes',
       value: stats.arrested,
       icon: UserCheck,
-      color: 'text-destructive',
-      bg: 'bg-destructive/10',
+      color: 'text-info',
+      bg: 'bg-info/10',
     },
     {
       title: 'Recherches',
       value: stats.wanted,
       icon: AlertTriangle,
-      color: 'text-warning-foreground',
-      bg: 'bg-warning/10',
+      color: 'text-danger',
+      bg: 'bg-danger/10',
     },
     {
       title: 'Liberes',
@@ -64,115 +69,125 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Tableau de bord</h1>
-        <p className="text-muted-foreground">
-          Bienvenue, {user?.profile?.firstName || user?.username}. Voici un apercu de l'activite.
-        </p>
+    <div className="dashboard-page space-y-6">
+      <div className="dashboard-heading">
+        <div>
+          <p className="eyebrow-label">CENTRE DE COMMANDE · CONGO-BRAZZAVILLE</p>
+          <h1 className="display-heading">TABLEAU DE BORD</h1>
+          <p className="text-sm text-muted-foreground">Bienvenue, {user?.profile?.firstName || user?.username}. Vue operationnelle des dossiers.</p>
+        </div>
+        <div className="dashboard-live"><span className="secure-session-dot" /> FLUX OPERATIONNEL</div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="glass-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-3xl font-bold text-foreground">{stat.value}</p>
-                </div>
-                <div className={`p-3 rounded-lg ${stat.bg}`}>
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
+      {stats.wanted > 0 && (
+        <HudCard accent="red" className="wanted-alert-panel">
+          <div className="wanted-alert-heading">
+            <div className="wanted-alert-icon"><ShieldAlert aria-hidden="true" className="h-5 w-5" /></div>
+            <div>
+              <p className="eyebrow-label text-danger">ALERTES PRIORITAIRES</p>
+              <h2 className="section-heading">{stats.wanted} DOSSIER{stats.wanted > 1 ? 'S' : ''} EN RECHERCHE</h2>
+            </div>
+          </div>
+          <div className="wanted-alert-list">
+            {criminals.filter((criminal) => criminal.status === 'ACTIVE').slice(0, 5).map((criminal) => (
+              <button key={criminal.id} type="button" className="wanted-alert-row" onClick={() => navigate(`/criminals/${criminal.id}`)}>
+                <span className="wanted-alert-live" aria-hidden="true" />
+                <span className="font-medium">{criminal.lastName} {criminal.firstName}</span>
+                <span className="font-mono text-xs text-muted-foreground">{criminal.caseNumber || criminal.fileNumber}</span>
+                <ArrowUpRight aria-hidden="true" className="ml-auto h-4 w-4 text-danger" />
+              </button>
+            ))}
+          </div>
+        </HudCard>
+      )}
+
+      <div className="dashboard-stat-grid">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.title}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.24, delay: prefersReducedMotion ? 0 : index * 0.055 }}
+          >
+            <HudCard className="dashboard-stat-card">
+              <div className="dashboard-stat-topline">
+                <span className={`dashboard-stat-icon ${stat.color}`}><stat.icon aria-hidden="true" /></span>
+                <span className="dashboard-stat-index">0{index + 1}</span>
               </div>
-            </CardContent>
-          </Card>
+              <p className="dashboard-stat-label">{stat.title}</p>
+              <AnimatedNumber value={stat.value} className={`dashboard-stat-value ${stat.color}`} />
+            </HudCard>
+          </motion.div>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Activite recente
-            </CardTitle>
-            <CardDescription>Dernieres actions dans le systeme</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {criminals.length > 0 ? (
-                criminals.slice(0, 5).map((criminal) => (
-                  <div key={criminal.id} className="flex items-start gap-3 pb-4 border-b last:border-0">
-                    {(() => {
-                      const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
-                      return (
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {photoSrc ? (
-                            <img
-                              src={photoSrc}
-                              alt={`${criminal.firstName} ${criminal.lastName}`}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-xs font-medium text-primary">
-                              {(criminal.caseNumber || criminal.fileNumber || 'NA').slice(-2)}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })()}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">
-                        <span className="font-medium">
-                          {criminal.firstName} {criminal.lastName}
-                        </span>
-                        <span className="text-muted-foreground ml-2">({criminal.caseNumber})</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateTime(criminal.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">Aucune activite recente</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <HudCard className="dashboard-panel">
+          <div className="panel-heading">
+            <SectionHeader title="Activite recente" description="Derniers dossiers ajoutes au systeme" />
+            <Clock aria-hidden="true" className="h-4 w-4 text-info" />
+          </div>
+          <div className="activity-timeline">
+            {criminals.length > 0 ? (
+              criminals.slice(0, 5).map((criminal, index) => {
+                const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
+                return (
+                  <motion.button
+                    key={criminal.id}
+                    type="button"
+                    className="activity-row"
+                    onClick={() => navigate(`/criminals/${criminal.id}`)}
+                    initial={prefersReducedMotion ? false : { opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: prefersReducedMotion ? 0 : 0.2, delay: prefersReducedMotion ? 0 : index * 0.045 }}
+                  >
+                    <span className={`activity-timeline-dot status-dot-${criminal.status.toLowerCase()}`} aria-hidden="true" />
+                    <span className="activity-avatar">
+                      {photoSrc ? <img src={photoSrc} alt="" /> : <User aria-hidden="true" className="h-4 w-4" />}
+                    </span>
+                    <span className="activity-copy">
+                      <span className="activity-name">{criminal.lastName} {criminal.firstName}</span>
+                      <span className="activity-case">{criminal.caseNumber || criminal.fileNumber} · {criminal.crimeType?.name || 'Type inconnu'}</span>
+                    </span>
+                    <time className="activity-time">{formatDateTime(criminal.createdAt)}</time>
+                  </motion.button>
+                );
+              })
+            ) : (
+              <p className="empty-state">Aucune activite recente.</p>
+            )}
+          </div>
+        </HudCard>
 
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle>Repartition par statut</CardTitle>
-            <CardDescription>Vue d'ensemble des dossiers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { label: 'Arretes', count: stats.arrested, color: 'bg-destructive' },
-                { label: 'Recherches', count: stats.wanted, color: 'bg-warning' },
-                { label: 'Liberes', count: stats.released, color: 'bg-success' },
-                { label: 'Decedes', count: stats.deceased, color: 'bg-muted-foreground' },
-              ].map((item) => (
-                <div key={item.label} className="space-y-2">
-                  <div className="flex justify-between text-sm">
+        <HudCard className="dashboard-panel">
+          <SectionHeader title="Repartition par statut" description="Dossiers actifs dans le registre" />
+          <div className="status-distribution">
+            {[
+              { label: 'Arretes', count: stats.arrested, color: 'info' },
+              { label: 'Recherches', count: stats.wanted, color: 'danger' },
+              { label: 'Liberes', count: stats.released, color: 'success' },
+              { label: 'Decedes', count: stats.deceased, color: 'neutral' },
+            ].map((item) => {
+              const percentage = stats.total > 0 ? (item.count / stats.total) * 100 : 0;
+              return (
+                <div key={item.label} className="distribution-row">
+                  <div className="distribution-labels">
                     <span>{item.label}</span>
-                    <span className="font-medium">{item.count}</span>
+                    <span className="font-mono">{item.count} · {Math.round(percentage)}%</span>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${item.color} rounded-full transition-all`}
-                      style={{
-                        width: `${stats.total > 0 ? (item.count / stats.total) * 100 : 0}%`,
-                      }}
+                  <div className="distribution-track" role="progressbar" aria-label={`${item.label}: ${Math.round(percentage)} pour cent`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percentage)}>
+                    <motion.div
+                      className={`distribution-fill distribution-${item.color}`}
+                      initial={prefersReducedMotion ? false : { width: 0 }}
+                      animate={{ width: `${percentage}%` }}
+                      transition={{ duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
                     />
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              );
+            })}
+          </div>
+        </HudCard>
       </div>
     </div>
   );

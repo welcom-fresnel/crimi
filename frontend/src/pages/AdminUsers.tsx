@@ -169,8 +169,9 @@ export default function AdminUsers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Administration des agents</h1>
-        <p className="text-muted-foreground">
+        <p className="eyebrow-label">CONTROLE DES ACCES</p>
+        <h1 className="display-heading">GESTION DES AGENTS</h1>
+        <p className="text-sm text-muted-foreground">
           Creez et gerez les comptes agents depuis cette interface.
         </p>
       </div>
@@ -291,10 +292,10 @@ export default function AdminUsers() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-lg border bg-background/50 p-4 flex flex-col md:flex-row md:items-center gap-3 md:justify-between"
+                    className="agent-record-card flex flex-col gap-3 border border-border bg-surface p-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div>
-                      <p className="font-medium">{item.profile?.firstName || ''} {item.profile?.lastName || ''}</p>
+                      <p className="font-display text-lg font-semibold uppercase tracking-[0.04em]">{item.profile?.firstName || ''} {item.profile?.lastName || ''}</p>
                       <p className="text-sm text-muted-foreground">
                         {item.username} · {item.email}
                       </p>
@@ -303,7 +304,7 @@ export default function AdminUsers() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={item.isActive ? 'default' : 'secondary'}>
+                      <Badge variant={item.isActive ? 'default' : 'secondary'} className={item.isActive ? 'agent-online-badge' : ''}>
                         {item.isActive ? 'Actif' : 'Inactif'}
                       </Badge>
                       <Button variant="outline" size="sm" onClick={() => onToggleStatus(item)}>
