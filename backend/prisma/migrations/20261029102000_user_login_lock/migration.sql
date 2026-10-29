@@ -1,0 +1,3 @@
+ALTER TABLE "users" ADD COLUMN "failedLoginCount" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "users" ADD COLUMN "lockedUntil" TIMESTAMP(3);
+ALTER TABLE "users" ADD COLUMN "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;

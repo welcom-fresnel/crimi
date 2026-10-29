@@ -1,26 +1,39 @@
-import { useCriminals } from '@/contexts/CriminalsContext';
+import { useEffect, useState } from 'react';
+import { criminalsAPI } from '@/services/api';
+import { Criminal } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnimatedNumber, HudCard, SectionHeader } from '@/components/hud';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, UserX, AlertTriangle, Clock, ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { Users, UserCheck, UserX, AlertTriangle, Clock, User, ArrowUpRight, ShieldAlert } from 'lucide-react';
 import { CriminalPhoto } from '@/components/criminals/CriminalPhoto';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function Dashboard() {
-  const { criminals } = useCriminals();
   const { user } = useAuth();
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
+  const [statsResponse, setStatsResponse] = useState<{ total: number; byStatus: Record<string, number> }>({ total: 0, byStatus: {} });
+  const [recentCriminals, setRecentCriminals] = useState<Criminal[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([criminalsAPI.getStats(), criminalsAPI.getAll(1, 5)]).then(([stats, recent]) => {
+      if (!active) return;
+      if (stats.success) setStatsResponse(stats.data);
+      if (recent.success) setRecentCriminals(recent.data);
+    }).catch(() => console.error('Échec du chargement du tableau de bord.'));
+    return () => { active = false; };
+  }, []);
 
   const stats = {
-    total: criminals.length,
-    arrested: criminals.filter((c) => c.status === 'ARRESTED').length,
-    wanted: criminals.filter((c) => c.status === 'ACTIVE').length,
-    released: criminals.filter((c) => c.status === 'RELEASED').length,
-    deceased: criminals.filter((c) => c.status === 'DECEASED').length,
+    total: statsResponse.total,
+    arrested: statsResponse.byStatus.ARRESTED || 0,
+    wanted: statsResponse.byStatus.ACTIVE || 0,
+    released: statsResponse.byStatus.RELEASED || 0,
+    deceased: statsResponse.byStatus.DECEASED || 0,
   };
 
   const statCards = [
@@ -89,7 +102,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="wanted-alert-list">
-            {criminals.filter((criminal) => criminal.status === 'ACTIVE').slice(0, 5).map((criminal) => (
+            {recentCriminals.filter((criminal) => criminal.status === 'ACTIVE').map((criminal) => (
               <button key={criminal.id} type="button" className="wanted-alert-row" onClick={() => navigate(`/criminals/${criminal.id}`)}>
                 <span className="wanted-alert-live" aria-hidden="true" />
                 <span className="font-medium">{criminal.lastName} {criminal.firstName}</span>
@@ -128,8 +141,8 @@ export default function Dashboard() {
             <Clock aria-hidden="true" className="h-4 w-4 text-info" />
           </div>
           <div className="activity-timeline">
-            {criminals.length > 0 ? (
-              criminals.slice(0, 5).map((criminal, index) => {
+            {recentCriminals.length > 0 ? (
+              recentCriminals.map((criminal, index) => {
                 return (
                   <motion.button
                     key={criminal.id}

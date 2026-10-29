@@ -14,21 +14,33 @@ import { toast } from 'sonner';
 import { Check, Plus, X } from 'lucide-react';
 import { CriminalPhoto } from './CriminalPhoto';
 import { invalidateCriminalPhoto } from '@/hooks/useCriminalPhoto';
+import { buildCriminalDiff, CriminalFormValues } from '@/lib/criminal-diff';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/contexts/AuthContext';
+import { AxiosError } from 'axios';
 
 const criminalSchema = z.object({
   firstName: z.string().min(2, 'Le prenom est requis'),
   lastName: z.string().min(2, 'Le nom est requis'),
+  alias: z.string().optional(),
   birthDate: z.string().optional(),
+  placeOfBirth: z.string().optional(),
   nationality: z.string().optional(),
-  crimeTypeId: z.string().min(1, 'Le type de crime est requis'),
-  arrestDate: z.string().min(1, "La date d'arrestation est requise"),
-  arrestLocation: z.string().min(2, "Le lieu d'arrestation est requis"),
+  gender: z.enum(['', 'MALE', 'FEMALE', 'OTHER']).optional(),
+  crimeTypeId: z.string().optional(),
+  crimeDate: z.string().optional(),
+  crimeLocation: z.string().optional(),
+  description: z.string().optional(),
+  dangerLevel: z.enum(['', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
+  lastKnownAddress: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  arrestDate: z.string().optional(),
+  arrestLocation: z.string().optional(),
   arrestingUnit: z.string().optional(),
   arrestingOfficer: z.string().optional(),
   warrantNumber: z.string().optional(),
   arrestationNotes: z.string().optional(),
-  status: z.enum(['ARRESTED', 'ACTIVE', 'RELEASED', 'DECEASED', 'UNKNOWN']),
-  notes: z.string().optional(),
+  status: z.enum(['ARRESTED', 'ACTIVE', 'RELEASED', 'DECEASED', 'UNKNOWN']).optional(),
   evidenceTitle: z.string().optional(),
   evidenceDescription: z.string().optional(),
   evidenceCategory: z.enum(['WEAPON', 'DOCUMENT', 'DIGITAL', 'BIOLOGICAL', 'OTHER']).optional(),
@@ -60,6 +72,26 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
   const navigate = useNavigate();
   const { crimeTypes, addCriminal, updateCriminal } = useCriminals();
   const { upsertCriminal } = useCriminals();
+  const { can } = usePermissions();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('ADMIN') || false;
+  const canWrite = can('criminals', isEditing ? 'update' : 'create');
+  const originalValues: Record<string, unknown> = {
+    firstName: criminal?.firstName, lastName: criminal?.lastName, alias: criminal?.alias,
+    birthDate: criminal?.dateOfBirth || criminal?.birthDate, placeOfBirth: criminal?.placeOfBirth,
+    nationality: criminal?.nationality, gender: criminal?.gender,
+    crimeTypeId: criminal?.crimeTypeId || criminal?.crimeType?.id,
+    crimeDate: criminal?.crimeDate, crimeLocation: criminal?.crimeLocation,
+    description: criminal?.description || criminal?.notes, status: criminal?.status,
+    dangerLevel: criminal?.dangerLevel, lastKnownAddress: criminal?.lastKnownAddress,
+    phoneNumber: criminal?.phoneNumber,
+    arrestDate: criminal?.arrestation?.arrestDate || criminal?.arrestDate,
+    arrestLocation: criminal?.arrestation?.arrestLocation || criminal?.arrestLocation,
+    arrestingUnit: criminal?.arrestation?.arrestingUnit, arrestingOfficer: criminal?.arrestation?.arrestingOfficer,
+    warrantNumber: criminal?.arrestation?.warrantNumber, arrestationNotes: criminal?.arrestation?.notes,
+  };
+  const isLocked = (field: string) => isEditing && !isAdmin && Boolean(String(originalValues[field] ?? '').trim());
+  const lockTitle = 'Champ verrouillé : seul un administrateur peut le modifier';
   const [pendingCrimes, setPendingCrimes] = useState<CrimeRecord[]>([]);
   const [photoPreview, setPhotoPreview] = useState<string>();
   useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
@@ -100,20 +132,25 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       ? {
           firstName: criminal.firstName,
           lastName: criminal.lastName,
+          alias: criminal.alias || '',
           birthDate: toDateInputValue(criminal.birthDate || criminal.dateOfBirth),
+          placeOfBirth: criminal.placeOfBirth || '',
           nationality: criminal.nationality || '',
+          gender: (criminal.gender as '' | 'MALE' | 'FEMALE' | 'OTHER') || '',
           crimeTypeId: criminal.crimeType?.id || '',
-          arrestDate: toDateInputValue(
-            criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate,
-          ),
-          arrestLocation:
-            criminal.arrestation?.arrestLocation || criminal.arrestLocation || criminal.crimeLocation || '',
+          crimeDate: toDateInputValue(criminal.crimeDate),
+          crimeLocation: criminal.crimeLocation || '',
+          description: criminal.description || criminal.notes || '',
+          dangerLevel: (criminal.dangerLevel as '' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL') || '',
+          lastKnownAddress: criminal.lastKnownAddress || '',
+          phoneNumber: criminal.phoneNumber || '',
+          arrestDate: toDateInputValue(criminal.arrestation?.arrestDate || criminal.arrestDate),
+          arrestLocation: criminal.arrestation?.arrestLocation || criminal.arrestLocation || '',
           arrestingUnit: criminal.arrestation?.arrestingUnit || '',
           arrestingOfficer: criminal.arrestation?.arrestingOfficer || '',
           warrantNumber: criminal.arrestation?.warrantNumber || '',
           arrestationNotes: criminal.arrestation?.notes || '',
           status: criminal.status as CriminalStatus,
-          notes: criminal.notes || criminal.description || '',
           evidenceTitle: '',
           evidenceDescription: '',
           evidenceCategory: 'OTHER',
@@ -134,23 +171,19 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
         },
   });
 
-  const generateCaseNumber = () => {
-    const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 1000)
-      .toString()
-      .padStart(3, '0');
-    return `CR-${year}-${random}`;
-  };
-
   const onSubmit = async (data: CriminalFormData) => {
-    if (!crimeTypes || crimeTypes.length === 0) {
+    if (!isEditing && (!crimeTypes || crimeTypes.length === 0)) {
       toast.error('Erreur', { description: 'Les types de crimes ne sont pas charges' });
       return;
     }
 
     const crimeType = crimeTypes.find(ct => ct.id === data.crimeTypeId);
-    if (!crimeType) {
+    if (!isEditing && !crimeType) {
       toast.error('Erreur', { description: 'Type de crime invalide' });
+      return;
+    }
+    if (!isEditing && (!data.description?.trim() || data.description.trim().length < 10)) {
+      toast.error('Description requise', { description: 'La description des faits doit contenir au moins 10 caractères.' });
       return;
     }
 
@@ -165,36 +198,47 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       return;
     }
 
-    // Adapter les donnees pour le backend
+    const arrestation = {
+      arrestDate: data.arrestDate || undefined,
+      arrestLocation: data.arrestLocation || undefined,
+      arrestingUnit: data.arrestingUnit || undefined,
+      arrestingOfficer: data.arrestingOfficer || undefined,
+      warrantNumber: data.warrantNumber || undefined,
+      notes: data.arrestationNotes || undefined,
+    };
     const backendData = {
-      caseNumber: isEditing && criminal ? criminal.caseNumber : generateCaseNumber(),
-      firstName: data.firstName,
-      lastName: data.lastName,
-      alias: data.firstName, // Utiliser firstName comme alias temporairement
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      alias: data.alias?.trim() || undefined,
       dateOfBirth: data.birthDate || undefined,
-      nationality: data.nationality || undefined,
-      crimeTypeId: data.crimeTypeId,
-      crimeDate: data.arrestDate || undefined,
-      crimeLocation: data.arrestLocation || undefined,
-      description: data.notes || 'Aucune description',
+      placeOfBirth: data.placeOfBirth?.trim() || undefined,
+      nationality: data.nationality?.trim() || undefined,
+      gender: data.gender || undefined,
+      crimeTypeId: data.crimeTypeId || undefined,
+      crimeDate: data.crimeDate || undefined,
+      crimeLocation: data.crimeLocation?.trim() || undefined,
+      description: data.description?.trim() || undefined,
       status: data.status,
-      arrestation: {
-        arrestDate: data.arrestDate || undefined,
-        arrestLocation: data.arrestLocation || undefined,
-        arrestingUnit: data.arrestingUnit || undefined,
-        arrestingOfficer: data.arrestingOfficer || undefined,
-        warrantNumber: data.warrantNumber || undefined,
-        notes: data.arrestationNotes || undefined,
-      },
+      dangerLevel: data.dangerLevel || undefined,
+      lastKnownAddress: data.lastKnownAddress?.trim() || undefined,
+      phoneNumber: data.phoneNumber?.trim() || undefined,
+      ...(Object.values(arrestation).some(Boolean) ? { arrestation } : {}),
     };
 
     try {
       let createdId: string | null = null;
       if (isEditing && criminal) {
-        await updateCriminal(criminal.id, backendData);
+        const changes = buildCriminalDiff(criminal, data as CriminalFormValues);
+        const hasPhoto = Boolean((document.getElementById('photo') as HTMLInputElement | null)?.files?.length);
+        const hasEvidence = Boolean(data.evidenceTitle?.trim() || data.evidenceDescription?.trim() || evidenceFiles.length);
+        if (Object.keys(changes).length) await updateCriminal(criminal.id, changes);
+        else if (!pendingCrimes.length && !hasPhoto && !hasEvidence) {
+          toast.info('Aucune modification');
+          return;
+        }
         createdId = criminal.id;
       } else {
-        const res = await addCriminal(backendData);
+        const res = await addCriminal({ ...backendData, crimeTypeId: data.crimeTypeId!, description: data.description!.trim(), status: data.status || 'ARRESTED' });
         createdId = res?.id || null;
       }
 
@@ -236,7 +280,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
             upsertCriminal(uploadResp.data);
           }
         } catch (err) {
-          console.error('Erreur upload photo:', err);
+          console.error('Échec du téléversement de la photo.');
         }
       }
 
@@ -254,7 +298,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
             files: evidenceFiles,
           });
         } catch (err) {
-          console.error('Erreur ajout piece a conviction:', err);
+          console.error('Échec de l’ajout de pièce à conviction.');
           toast.error('Attention', {
             description: 'Le dossier est cree mais la piece a conviction n a pas pu etre enregistree.',
           });
@@ -268,7 +312,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
             upsertCriminal(refreshed.data);
           }
         } catch (err) {
-          console.error('Erreur lors du rechargement du dossier:', err);
+          console.error('Échec du rechargement du dossier.');
         }
 
         navigate(`/criminals/${createdId}`);
@@ -278,9 +322,15 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       navigate('/criminals');
     } catch (error) {
       // L'erreur est deja geree dans le contexte
-      console.error('Erreur lors de la soumission:', error);
+      console.error('Échec de l’enregistrement du dossier.');
+      const status = error instanceof AxiosError ? error.response?.status : undefined;
+      const responseMessage = error instanceof AxiosError ? (error.response?.data as { message?: string } | undefined)?.message : undefined;
+      if (status === 403) {
+        toast.error('Accès refusé', { description: /champ|renseign|déjà|already/i.test(responseMessage || '') ? 'Les champs déjà renseignés sont verrouillés pour ce compte.' : 'Vous ne disposez pas des droits requis pour cette modification.' });
+        return;
+      }
       toast.error('Enregistrement incomplet', {
-        description: error instanceof Error ? error.message : 'Impossible d enregistrer les modifications.',
+        description: responseMessage || (error instanceof Error ? error.message : 'Impossible d’enregistrer les modifications.'),
       });
     }
   };
@@ -339,10 +389,10 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       </nav>
       <div className="mb-4">
         <Label htmlFor="photo">Photo du criminel</Label>
-        <input id="photo" name="photo" type="file" accept="image/*" onChange={(event) => {
+        {canWrite && <input id="photo" name="photo" type="file" accept="image/*" onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           setPhotoPreview((current) => { if (current) URL.revokeObjectURL(current); return file ? URL.createObjectURL(file) : undefined; });
-        }} />
+        }} />}
         {photoPreview ? <img src={photoPreview} alt="Aperçu de la photo sélectionnée" className="mt-3 h-24 w-24 rounded object-cover" /> : criminal && <CriminalPhoto criminalId={criminal.id} hasPhoto={Boolean(criminal.photo)} version={criminal.updatedAt} alt={`${criminal.firstName} ${criminal.lastName}`} className="mt-3 h-24 w-24 rounded bg-surface-elevated" />}
       </div>
       <div className="grid gap-6 md:grid-cols-2">
@@ -354,23 +404,27 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="lastName">Nom *</Label>
-                <Input id="lastName" {...register('lastName')} placeholder="DIALLO" />
+                <Input id="lastName" {...register('lastName')} placeholder="DIALLO" readOnly={isLocked('lastName')} title={isLocked('lastName') ? lockTitle : undefined} />
                 {errors.lastName && (
                   <p className="text-sm text-destructive">{errors.lastName.message}</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="firstName">Prenom *</Label>
-                <Input id="firstName" {...register('firstName')} placeholder="Moussa" />
+                <Input id="firstName" {...register('firstName')} placeholder="Moussa" readOnly={isLocked('firstName')} title={isLocked('firstName') ? lockTitle : undefined} />
                 {errors.firstName && (
                   <p className="text-sm text-destructive">{errors.firstName.message}</p>
                 )}
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="alias">Alias</Label><Input id="alias" {...register('alias')} readOnly={isLocked('alias')} title={isLocked('alias') ? lockTitle : undefined} /></div>
+              <div className="space-y-2"><Label htmlFor="placeOfBirth">Lieu de naissance</Label><Input id="placeOfBirth" {...register('placeOfBirth')} readOnly={isLocked('placeOfBirth')} title={isLocked('placeOfBirth') ? lockTitle : undefined} /></div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="birthDate">Date de naissance</Label>
-                <Input id="birthDate" type="date" {...register('birthDate')} />
+                <Input id="birthDate" type="date" {...register('birthDate')} readOnly={isLocked('birthDate')} title={isLocked('birthDate') ? lockTitle : undefined} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nationality">Nationalite</Label>
@@ -378,6 +432,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                   <select
                     id="nationality"
                     {...register('nationality')}
+                    disabled={isLocked('nationality')} title={isLocked('nationality') ? lockTitle : undefined}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   >
                     <option value="">Selectionner une nationalite</option>
@@ -386,106 +441,37 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
                     ))}
                   </select>
                 ) : (
-                  <Input id="nationality" {...register('nationality')} placeholder="Senegalaise" />
+                  <Input id="nationality" {...register('nationality')} placeholder="Senegalaise" readOnly={isLocked('nationality')} title={isLocked('nationality') ? lockTitle : undefined} />
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card id="criminal-step-facts" className="glass-card form-step-section">
-          <CardHeader>
-            <CardTitle className="text-lg">Informations criminelles</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="crimeTypeId">Type de crime *</Label>
-                <select
-                  id="crimeTypeId"
-                  {...register('crimeTypeId')}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  <option value="" disabled>Selectionner un type</option>
-                  {crimeTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
-                </select>
-              {errors.crimeTypeId && (
-                <p className="text-sm text-destructive">{errors.crimeTypeId.message}</p>
-              )}
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="arrestDate">Date d'arrestation *</Label>
-                <Input id="arrestDate" type="date" {...register('arrestDate')} />
-                {errors.arrestDate && (
-                  <p className="text-sm text-destructive">{errors.arrestDate.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Statut *</Label>
-                <select
-                  id="status"
-                  {...register('status')}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  {statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </div>
+              <div className="space-y-2"><Label htmlFor="gender">Genre</Label><select id="gender" {...register('gender')} disabled={isLocked('gender')} title={isLocked('gender') ? lockTitle : undefined} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">Non renseigné</option><option value="MALE">Homme</option><option value="FEMALE">Femme</option><option value="OTHER">Autre</option></select></div>
+              <div className="space-y-2"><Label htmlFor="phoneNumber">Téléphone</Label><Input id="phoneNumber" {...register('phoneNumber')} readOnly={isLocked('phoneNumber')} title={isLocked('phoneNumber') ? lockTitle : undefined} /></div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="arrestLocation">Lieu d'arrestation *</Label>
-              <Input
-                id="arrestLocation"
-                {...register('arrestLocation')}
-                placeholder="Dakar, Plateau"
-              />
-              {errors.arrestLocation && (
-                <p className="text-sm text-destructive">{errors.arrestLocation.message}</p>
-              )}
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="arrestingUnit">Unite d'intervention</Label>
-                <Input
-                  id="arrestingUnit"
-                  {...register('arrestingUnit')}
-                  placeholder="Brigade anti-criminalite"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="arrestingOfficer">Agent responsable</Label>
-                <Input id="arrestingOfficer" {...register('arrestingOfficer')} placeholder="Lt. M. Diallo" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="warrantNumber">Numero de mandat</Label>
-              <Input id="warrantNumber" {...register('warrantNumber')} placeholder="MANDAT-2026-001" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="arrestationNotes">Observations d'arrestation</Label>
-              <Textarea
-                id="arrestationNotes"
-                {...register('arrestationNotes')}
-                placeholder="Contexte de l'interpellation, equipe engagee, resistance constatee..."
-                rows={3}
-              />
-            </div>
+            <div className="space-y-2"><Label htmlFor="lastKnownAddress">Dernière adresse connue</Label><Input id="lastKnownAddress" {...register('lastKnownAddress')} readOnly={isLocked('lastKnownAddress')} title={isLocked('lastKnownAddress') ? lockTitle : undefined} /></div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card md:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Notes additionnelles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              {...register('notes')}
-              placeholder="Informations complementaires sur le dossier..."
-              rows={4}
-            />
+        <Card id="criminal-step-facts" className="glass-card form-step-section md:col-span-2">
+          <CardHeader><CardTitle className="text-lg">Faits et arrestation</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2"><Label htmlFor="crimeTypeId">Type d’infraction *</Label><select id="crimeTypeId" {...register('crimeTypeId')} disabled={isLocked('crimeTypeId')} title={isLocked('crimeTypeId') ? lockTitle : undefined} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">Sélectionner un type</option>{crimeTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select>{!isEditing && errors.crimeTypeId && <p className="text-sm text-destructive">{errors.crimeTypeId.message}</p>}</div>
+            <div className="space-y-2"><Label htmlFor="crimeDate">Date des faits</Label><Input id="crimeDate" type="date" {...register('crimeDate')} readOnly={isLocked('crimeDate')} title={isLocked('crimeDate') ? lockTitle : undefined} /></div>
+            <div className="space-y-2"><Label htmlFor="crimeLocation">Lieu des faits</Label><Input id="crimeLocation" {...register('crimeLocation')} readOnly={isLocked('crimeLocation')} title={isLocked('crimeLocation') ? lockTitle : undefined} /></div>
+            <div className="space-y-2 sm:col-span-2"><Label htmlFor="description">Description des faits {!isEditing && '*'}</Label><Textarea id="description" {...register('description')} readOnly={isLocked('description')} title={isLocked('description') ? lockTitle : undefined} rows={4} placeholder="Décrivez les faits (10 caractères minimum à la création)..." />{!isEditing && <p className="text-xs text-muted-foreground">Au moins 10 caractères à la création.</p>}</div>
+            <div className="space-y-2"><Label htmlFor="status">Situation de la personne</Label><select id="status" {...register('status')} disabled={isLocked('status')} title={isLocked('status') ? lockTitle : undefined} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+            <div className="space-y-2"><Label htmlFor="dangerLevel">Niveau de danger</Label><select id="dangerLevel" {...register('dangerLevel')} disabled={isLocked('dangerLevel')} title={isLocked('dangerLevel') ? lockTitle : undefined} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">Non renseigné</option><option value="LOW">Faible</option><option value="MEDIUM">Moyen</option><option value="HIGH">Élevé</option><option value="CRITICAL">Critique</option></select></div>
+            <div className="space-y-2"><Label htmlFor="arrestDate">Date d’arrestation</Label><Input id="arrestDate" type="date" {...register('arrestDate')} readOnly={isLocked('arrestDate')} title={isLocked('arrestDate') ? lockTitle : undefined} /></div>
+            <div className="space-y-2"><Label htmlFor="arrestLocation">Lieu d’arrestation</Label><Input id="arrestLocation" {...register('arrestLocation')} readOnly={isLocked('arrestLocation')} title={isLocked('arrestLocation') ? lockTitle : undefined} /></div>
+            <div className="space-y-2"><Label htmlFor="arrestingUnit">Unité d’intervention</Label><Input id="arrestingUnit" {...register('arrestingUnit')} readOnly={isLocked('arrestingUnit')} title={isLocked('arrestingUnit') ? lockTitle : undefined} /></div>
+            <div className="space-y-2"><Label htmlFor="arrestingOfficer">Agent responsable</Label><Input id="arrestingOfficer" {...register('arrestingOfficer')} readOnly={isLocked('arrestingOfficer')} title={isLocked('arrestingOfficer') ? lockTitle : undefined} /></div>
+            <div className="space-y-2"><Label htmlFor="warrantNumber">Numéro de mandat</Label><Input id="warrantNumber" {...register('warrantNumber')} readOnly={isLocked('warrantNumber')} title={isLocked('warrantNumber') ? lockTitle : undefined} /></div>
+            <div className="space-y-2 sm:col-span-2"><Label htmlFor="arrestationNotes">Observations d’arrestation</Label><Textarea id="arrestationNotes" {...register('arrestationNotes')} readOnly={isLocked('arrestationNotes')} title={isLocked('arrestationNotes') ? lockTitle : undefined} rows={3} /></div>
           </CardContent>
         </Card>
 
-        {isEditing && criminal && (
+        {isEditing && criminal && can('criminals', 'update') && (
           <Card id="criminal-step-crimes" className="glass-card md:col-span-2 form-step-section">
             <CardHeader>
               <CardTitle className="text-lg">Infractions liees au dossier</CardTitle>
@@ -573,7 +559,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           </Card>
         )}
 
-        <Card id="criminal-step-evidence" className="glass-card md:col-span-2 form-step-section">
+        {canWrite && <Card id="criminal-step-evidence" className="glass-card md:col-span-2 form-step-section">
           <CardHeader>
             <CardTitle className="text-lg">Pieces a conviction</CardTitle>
           </CardHeader>
@@ -632,14 +618,14 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
               />
             </div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       <div className="flex justify-end gap-4 mt-6">
         <Button type="button" variant="outline" onClick={() => navigate('/criminals')}>
           Annuler
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting || !canWrite}>
           {isEditing ? 'Mettre a jour' : 'Enregistrer'}
         </Button>
       </div>

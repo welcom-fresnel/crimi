@@ -7,6 +7,8 @@ import { userController } from '../controllers/user.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { auditLog, saveOriginalData } from '../middlewares/audit.middleware';
 import { userService } from '../services/user.service';
+import { body } from 'express-validator';
+import { validate } from '../middlewares/validation.middleware';
 
 const router = Router();
 
@@ -49,6 +51,12 @@ router.get(
 router.put(
   '/:id',
   authorize('users', 'update'),
+  validate([
+    body('email').optional().isEmail().withMessage('Adresse email invalide'),
+    body('isActive').optional().isBoolean().withMessage('Le statut actif est invalide'),
+    body('roleIds').optional().isArray().withMessage('La liste des rôles est invalide'),
+    body('roleIds.*').optional().isUUID().withMessage('ID de rôle invalide'),
+  ]),
   saveOriginalData('USER', (id: string) => userService.getUserById(id)),
   auditLog('UPDATE', 'USER'),
   userController.updateUser

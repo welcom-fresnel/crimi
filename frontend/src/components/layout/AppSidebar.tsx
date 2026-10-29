@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   Sidebar,
   SidebarContent,
@@ -39,15 +40,18 @@ const menuItems = [
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
+  const { can } = usePermissions();
   const location = useLocation();
   const isAdmin = user?.roles?.includes('ADMIN');
-  const displayMenuItems = isAdmin
-    ? [
-        ...menuItems,
+  const displayMenuItems = [
+    ...menuItems.filter((item) => item.url !== '/criminals/new' || can('criminals', 'create')),
+    ...(isAdmin
+      ? [
         { title: 'Historique', url: '/history', icon: History },
         { title: 'Gestion agents', url: '/admin/users', icon: UserCog },
       ]
-    : menuItems;
+      : []),
+  ];
 
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return 'U';

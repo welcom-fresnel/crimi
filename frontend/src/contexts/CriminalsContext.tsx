@@ -5,6 +5,7 @@ import { socketService } from '../services/socket.service';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { Criminal, CrimeType } from '../types';
+import { createDebouncedRefresh } from '../lib/debounced-refresh';
 
 type CriminalPayload = Partial<Criminal> & {
   id: string;
@@ -12,7 +13,7 @@ type CriminalPayload = Partial<Criminal> & {
 };
 
 type CriminalMutationPayload = {
-  caseNumber: string;
+  caseNumber?: never;
   firstName: string;
   lastName: string;
   crimeTypeId: string;
@@ -39,6 +40,8 @@ type CriminalMutationPayload = {
 };
 
 type CriminalSearchParams = Record<string, string>;
+interface CriminalPagination { page: number; limit: number; total: number; totalPages: number; }
+interface CriminalRequest { page: number; filters: CriminalSearchParams; limit: number; }
 
 interface ApiErrorPayload {
   message?: string;
@@ -46,37 +49,40 @@ interface ApiErrorPayload {
 
 interface CriminalsContextType {
   criminals: Criminal[];
+  pagination: CriminalPagination;
   crimeTypes: CrimeType[];
   isLoading: boolean;
-  fetchCriminals: () => Promise<void>;
+  loading: boolean;
+  fetchCriminals: (page?: number, filters?: CriminalSearchParams, limit?: number) => Promise<void>;
   fetchCrimeTypes: () => Promise<void>;
   addCriminal: (data: CriminalMutationPayload) => Promise<Criminal | null>;
   updateCriminal: (id: string, data: Partial<CriminalMutationPayload>) => Promise<void>;
   upsertCriminal: (criminal: CriminalPayload) => void;
-  searchCriminals: (params: CriminalSearchParams) => Promise<void>;
 }
 
 const CriminalsContext = createContext<CriminalsContextType | undefined>(undefined);
 
 export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [criminals, setCriminals] = useState<Criminal[]>([]);
+  const [pagination, setPagination] = useState<CriminalPagination>({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [crimeTypes, setCrimeTypes] = useState<CrimeType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { isAuthenticated } = useAuth();
-  const searchParamsRef = useRef<CriminalSearchParams | null>(null);
-  const refreshTimerRef = useRef<number | null>(null);
-
-  const scheduleRefresh = () => {
-    if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
-    refreshTimerRef.current = window.setTimeout(() => {
-      refreshTimerRef.current = null;
-      if (searchParamsRef.current) void searchCriminals(searchParamsRef.current);
-      else void fetchCriminals();
-    }, 1500);
-  };
+  const currentRequestRef = useRef<CriminalRequest>({ page: 1, filters: {}, limit: 10 });
+  const fetchCriminalsRef = useRef<((page?: number, filters?: CriminalSearchParams, limit?: number) => Promise<void>) | null>(null);
+  const refreshRef = useRef<ReturnType<typeof createDebouncedRefresh> | null>(null);
+  if (!refreshRef.current) {
+    refreshRef.current = createDebouncedRefresh(() => {
+      const request = currentRequestRef.current;
+      if (fetchCriminalsRef.current) void fetchCriminalsRef.current(request.page, request.filters, request.limit);
+    });
+  }
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (error instanceof AxiosError<ApiErrorPayload>) {
+      if (error.response?.status === 403 && /champ|renseign|déjà|already/i.test(error.response.data?.message || '')) {
+        return 'Modification refusée : seuls les administrateurs peuvent modifier les champs déjà renseignés.';
+      }
       return error.response?.data?.message || error.message || fallback;
     }
     if (error instanceof Error) {
@@ -112,7 +118,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return [mapped, ...prev];
         });
       } else {
-        scheduleRefresh();
+        refreshRef.current?.schedule();
       }
 
       toast.info('Nouveau dossier enregistré', {
@@ -126,7 +132,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const mapped = mapCriminal(received);
         setCriminals((prev) => prev.map((item) => (item.id === mapped.id ? mapped : item)));
       } else {
-        scheduleRefresh();
+        refreshRef.current?.schedule();
       }
 
       toast.warning('Dossier mis à jour', {
@@ -162,13 +168,12 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     if (isAuthenticated) {
-      void fetchCriminals();
       void fetchCrimeTypes();
       setupRealtimeListeners();
     }
 
     return () => {
-      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+      refreshRef.current?.cancel();
       socketService.off('criminal:created');
       socketService.off('criminal:updated');
       socketService.off('criminal:deleted');
@@ -177,18 +182,22 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-  const fetchCriminals = async () => {
-    searchParamsRef.current = null;
+  const fetchCriminals = async (page = 1, filters: CriminalSearchParams = {}, limit = 10) => {
+    currentRequestRef.current = { page, filters, limit };
     try {
       setIsLoading(true);
-      const response = await criminalsAPI.getAll(1, 100);
+      const hasFilters = Object.values(filters).some(Boolean);
+      const response = hasFilters
+        ? await criminalsAPI.search({ ...filters, page: String(page), limit: String(limit) })
+        : await criminalsAPI.getAll(page, limit);
 
       if (response.success) {
         const mapped = response.data.map((criminal) => mapCriminal(criminal as CriminalPayload));
         setCriminals(mapped);
+        setPagination(response.pagination || { page, limit, total: mapped.length, totalPages: 1 });
       }
-    } catch (error) {
-      console.error('Erreur de chargement:', error);
+    } catch {
+      console.error('Échec du chargement des dossiers.');
       toast.error('Erreur', {
         description: 'Impossible de charger les criminels',
       });
@@ -196,6 +205,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsLoading(false);
     }
   };
+  fetchCriminalsRef.current = fetchCriminals;
 
   const fetchCrimeTypes = async () => {
     try {
@@ -203,8 +213,8 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (response.success) {
         setCrimeTypes(response.data);
       }
-    } catch (error) {
-      console.error('Erreur de chargement des types de crimes:', error);
+    } catch {
+      console.error('Échec du chargement des types de crimes.');
       toast.error('Erreur', {
         description: 'Impossible de charger les types de crimes',
       });
@@ -225,7 +235,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       return null;
     } catch (error: unknown) {
-      console.error('Erreur de creation:', error);
+      console.error('Échec de création du dossier.');
       toast.error('Erreur', {
         description: getErrorMessage(error, 'Impossible de creer le criminel'),
       });
@@ -246,7 +256,8 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
       }
     } catch (error: unknown) {
-      console.error('Erreur de mise a jour:', error);
+      console.error('Échec de mise à jour du dossier.');
+      if (error instanceof AxiosError && error.response?.status === 403) throw error;
       toast.error('Erreur', {
         description: getErrorMessage(error, 'Impossible de modifier le criminel'),
       });
@@ -256,38 +267,19 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const searchCriminals = async (params: CriminalSearchParams) => {
-    searchParamsRef.current = params;
-    try {
-      setIsLoading(true);
-      const response = await criminalsAPI.search(params);
-
-      if (response.success) {
-        const mapped = (response.data || []).map((criminal) => mapCriminal(criminal as CriminalPayload));
-        setCriminals(mapped);
-      }
-    } catch (error) {
-      console.error('Erreur de recherche:', error);
-      toast.error('Erreur', {
-        description: 'Impossible de rechercher',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <CriminalsContext.Provider
       value={{
         criminals,
+        pagination,
         crimeTypes,
         isLoading,
+        loading: isLoading,
         fetchCriminals,
         fetchCrimeTypes,
         addCriminal,
         updateCriminal,
         upsertCriminal,
-        searchCriminals,
       }}
     >
       {children}

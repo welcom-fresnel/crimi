@@ -5,6 +5,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { userService } from '../services/user.service';
+import { config } from '../config';
 
 class UserController {
   /**
@@ -28,8 +29,8 @@ class UserController {
    */
   async getAllUsers(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(config.maxPageSize, Math.max(1, parseInt(req.query.limit as string) || config.defaultPageSize));
       
       const result = await userService.getAllUsers(page, limit);
       
@@ -66,7 +67,7 @@ class UserController {
   async updateUser(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const user = await userService.updateUser(id, req.body);
+      const user = await userService.updateUser(id, req.body, req.user!.userId, req.user!.roles);
       
       res.status(200).json({
         success: true,
@@ -84,7 +85,7 @@ class UserController {
   async toggleUserStatus(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const user = await userService.toggleUserStatus(id);
+      const user = await userService.toggleUserStatus(id, req.user!.userId, req.user!.roles);
       
       res.status(200).json({
         success: true,
@@ -102,7 +103,7 @@ class UserController {
   async deleteUser(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await userService.deleteUser(id);
+      const result = await userService.deleteUser(id, req.user!.userId, req.user!.roles);
       
       res.status(200).json({
         success: true,

@@ -7,6 +7,7 @@ import { ApiError } from '../utils/ApiError';
 import { CreateCriminalDto, UpdateCriminalDto, SearchCriminalDto, CreateEvidenceDto, UpdateEvidenceDto, CreateCrimeDto } from '../types';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 
 const mapArrestationInput = (data?: CreateCriminalDto['arrestation'] | UpdateCriminalDto['arrestation']) => {
   if (!data) return undefined;
@@ -37,12 +38,12 @@ const parseEvidenceDate = (value?: string | null) => {
   return date;
 };
 
-const deleteFileIfSafe = (fileUrl?: string) => {
+export const deleteFileIfSafe = (fileUrl?: string) => {
   if (!fileUrl) return;
   const relativePath = fileUrl.startsWith('/') ? fileUrl.slice(1) : fileUrl;
   const absolutePath = path.resolve(process.cwd(), relativePath);
   const uploadsRoot = path.resolve(process.cwd(), 'uploads');
-  if (absolutePath.startsWith(uploadsRoot) && fs.existsSync(absolutePath)) {
+  if (absolutePath.startsWith(`${uploadsRoot}${path.sep}`) && fs.existsSync(absolutePath)) {
     try {
       fs.unlinkSync(absolutePath);
     } catch (_) {}
@@ -50,6 +51,11 @@ const deleteFileIfSafe = (fileUrl?: string) => {
 };
 
 class CriminalService {
+  async assertCriminalActive(id: string) {
+    const criminal = await prisma.criminal.findUnique({ where: { id } });
+    if (!criminal || criminal.deletedAt) throw new ApiError(404, 'Criminel non trouve');
+    return criminal;
+  }
   /**
    * Creer un nouveau criminel
    */
@@ -72,12 +78,9 @@ class CriminalService {
       throw new ApiError(400, 'Au moins un crime est requis');
     }
 
-    const existingCriminal = await prisma.criminal.findUnique({
-      where: { caseNumber: data.caseNumber },
-    });
-
-    if (existingCriminal) {
-      throw new ApiError(409, 'Ce numero de dossier existe deja');
+    if (data.caseNumber) {
+      const existingCriminal = await prisma.criminal.findUnique({ where: { caseNumber: data.caseNumber } });
+      if (existingCriminal) throw new ApiError(409, 'Ce numero de dossier existe deja');
     }
 
     const crimeType = await prisma.crimeType.findUnique({
@@ -89,9 +92,17 @@ class CriminalService {
     }
 
     const criminal = await prisma.$transaction(async (tx) => {
+      let caseNumber = data.caseNumber;
+      if (!caseNumber) {
+        do {
+          const [sequenceRow] = await tx.$queryRaw<Array<{ value: string }>>`SELECT nextval('criminal_case_number_seq')::text AS value`;
+          if (Number(sequenceRow.value) > 999999) throw new ApiError(503, 'La séquence des numéros de dossier a atteint sa capacité');
+          caseNumber = `${new Date().getFullYear()}-${String(sequenceRow.value).padStart(6, '0')}`;
+        } while (await tx.criminal.findUnique({ where: { caseNumber }, select: { id: true } }));
+      }
       const createdCriminal = await tx.criminal.create({
         data: {
-          caseNumber: data.caseNumber,
+          caseNumber,
           firstName: data.firstName,
           lastName: data.lastName,
           alias: data.alias,
@@ -109,6 +120,8 @@ class CriminalService {
           dangerLevel: primaryCrime.dangerLevel,
           lastKnownAddress: data.lastKnownAddress,
           phoneNumber: data.phoneNumber,
+          personSituation: data.personSituation,
+          offenseState: data.offenseState,
           createdById,
           arrestation: data.arrestation
             ? {
@@ -118,7 +131,7 @@ class CriminalService {
                 },
               }
             : undefined,
-        },
+        } as any,
       });
 
       const crimesToCreate = crimesInput.length > 0 ? crimesInput : [primaryCrime];
@@ -137,6 +150,9 @@ class CriminalService {
       });
 
       return createdCriminal;
+    }).catch((error: unknown) => {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') throw new ApiError(409, 'Ce numero de dossier existe deja');
+      throw error;
     });
 
     return prisma.criminal.findUnique({
@@ -172,18 +188,7 @@ class CriminalService {
     updatedById: string,
     roles: string[]
   ) {
-    const criminal = await prisma.criminal.findUnique({ where: { id } });
-    if (!criminal) {
-      throw new ApiError(404, 'Criminel non trouve');
-    }
-
-    if (criminal.deletedAt) {
-      throw new ApiError(404, 'Criminel non trouve');
-    }
-
-    if (criminal.deletedAt) {
-      throw new ApiError(404, 'Criminel non trouve');
-    }
+    const criminal = await this.assertCriminalActive(id);
 
     const isAdmin = roles.includes('ADMIN');
     if (!isAdmin && criminal.photo) {
@@ -207,7 +212,12 @@ class CriminalService {
     });
 
     if (criminal.photo && criminal.photo !== photoUrl) {
-      deleteFileIfSafe(criminal.photo);
+      const oldPath = path.resolve(process.cwd(), criminal.photo.replace(/^\//, ''));
+      const archiveDir = path.resolve(process.cwd(), 'uploads', 'archive', 'photos');
+      fs.mkdirSync(archiveDir, { recursive: true });
+      if (oldPath.startsWith(`${path.resolve(process.cwd(), 'uploads', 'photos')}${path.sep}`) && fs.existsSync(oldPath)) {
+        fs.renameSync(oldPath, path.join(archiveDir, `${randomUUID()}-${path.basename(oldPath)}`));
+      }
     }
 
     return updated;
@@ -238,7 +248,7 @@ class CriminalService {
       throw new ApiError(400, 'La categorie de preuve est invalide');
     }
 
-    const evidence = await prisma.evidence.create({
+    const evidence = await (prisma.evidence as any).create({
       data: {
         criminalId: id,
         title: data.title,
@@ -247,6 +257,7 @@ class CriminalService {
         collectedAt: parseEvidenceDate(data.collectedAt),
         collectedAtLocation: data.collectedAtLocation || null,
         fileUrls: data.fileUrls || [],
+        fileHashes: data.fileHashes || [],
         createdById,
       },
       include: {
@@ -262,14 +273,16 @@ class CriminalService {
   }
 
   async getEvidenceById(evidenceId: string) {
-    const evidence = await prisma.evidence.findUnique({ where: { id: evidenceId } });
+    const evidence = await prisma.evidence.findUnique({ where: { id: evidenceId }, include: { criminal: { select: { id: true, deletedAt: true } } } });
     if (!evidence) {
       throw new ApiError(404, 'Piece a conviction non trouvee');
     }
+    await this.assertCriminalActive(evidence.criminalId);
     return evidence;
   }
 
   async getEvidenceFile(criminalId: string, evidenceId: string, fileIndex: number) {
+    await this.assertCriminalActive(criminalId);
     const evidence = await this.getEvidenceById(evidenceId);
     if (evidence.criminalId !== criminalId || !Number.isSafeInteger(fileIndex)) {
       throw new ApiError(404, 'Fichier de preuve non trouve');
@@ -290,6 +303,7 @@ class CriminalService {
   }
 
   async updateEvidence(criminalId: string, evidenceId: string, data: UpdateEvidenceDto) {
+    await this.assertCriminalActive(criminalId);
     const evidence = await this.getEvidenceById(evidenceId);
     if (evidence.criminalId !== criminalId) {
       throw new ApiError(404, 'Piece a conviction non trouvee');
@@ -437,6 +451,7 @@ class CriminalService {
     updatedById: string,
     roles: string[]
   ) {
+    await this.assertCriminalActive(id);
     const criminal = await prisma.criminal.findUnique({
       where: { id },
       include: { arrestation: true },
@@ -448,12 +463,21 @@ class CriminalService {
 
     const isAdmin = roles.includes('ADMIN');
     const canFill = (value: any): boolean => value === null || value === undefined || value === '';
+    const normalized = (field: string, value: any): unknown => {
+      if (value === null || value === undefined) return value;
+      if (/date/i.test(field)) {
+        const date = value instanceof Date ? value : new Date(value);
+        return Number.isNaN(date.getTime()) ? String(value).trim() : date.toISOString().slice(0, 10);
+      }
+      return typeof value === 'string' ? value.trim() : value;
+    };
     const blockedFields: string[] = [];
     const allowedData: UpdateCriminalDto = {};
 
     if (!isAdmin) {
       const handleField = (field: keyof UpdateCriminalDto, value: any, currentValue: any) => {
         if (value === undefined) return;
+        if (normalized(String(field), value) === normalized(String(field), currentValue)) return;
         if (canFill(currentValue)) {
           (allowedData as any)[field] = value;
         } else {
@@ -478,6 +502,8 @@ class CriminalService {
       handleField('dangerLevel', data.dangerLevel, criminal.dangerLevel);
       handleField('lastKnownAddress', data.lastKnownAddress, criminal.lastKnownAddress);
       handleField('phoneNumber', data.phoneNumber, criminal.phoneNumber);
+      handleField('personSituation', data.personSituation, (criminal as any).personSituation);
+      handleField('offenseState', data.offenseState, (criminal as any).offenseState);
 
       if (data.arrestation !== undefined) {
         if (!criminal.arrestation) {
@@ -488,6 +514,7 @@ class CriminalService {
           type ArrestationUpdate = NonNullable<UpdateCriminalDto['arrestation']>;
           const handleArrestation = (field: keyof ArrestationUpdate, value: any) => {
             if (value === undefined) return;
+            if (normalized(String(field), value) === normalized(String(field), currentArrestation[field])) return;
             if (canFill(currentArrestation[field])) {
               allowedArrestation[field] = value;
             } else {
@@ -516,7 +543,7 @@ class CriminalService {
       }
 
       if (Object.keys(allowedData).length === 0) {
-        throw new ApiError(400, 'Aucun champ modifiable');
+        return this.getCriminalById(id);
       }
     }
 
@@ -534,12 +561,20 @@ class CriminalService {
 
     const mappedArrestation = mapArrestationInput(effectiveData.arrestation) || {};
 
+    const scalarData = {
+      firstName: effectiveData.firstName, lastName: effectiveData.lastName, alias: effectiveData.alias,
+      dateOfBirth: effectiveData.dateOfBirth ? new Date(effectiveData.dateOfBirth) : undefined,
+      placeOfBirth: effectiveData.placeOfBirth, nationality: effectiveData.nationality, gender: effectiveData.gender,
+      photo: effectiveData.photo, fingerprint: effectiveData.fingerprint, crimeTypeId: effectiveData.crimeTypeId,
+      crimeDate: effectiveData.crimeDate ? new Date(effectiveData.crimeDate) : undefined,
+      crimeLocation: effectiveData.crimeLocation, description: effectiveData.description, status: effectiveData.status,
+      dangerLevel: effectiveData.dangerLevel, lastKnownAddress: effectiveData.lastKnownAddress, phoneNumber: effectiveData.phoneNumber,
+      personSituation: effectiveData.personSituation, offenseState: effectiveData.offenseState,
+    };
     const updatedCriminal = await prisma.criminal.update({
       where: { id },
       data: {
-        ...effectiveData,
-        dateOfBirth: effectiveData.dateOfBirth ? new Date(effectiveData.dateOfBirth) : undefined,
-        crimeDate: effectiveData.crimeDate ? new Date(effectiveData.crimeDate) : undefined,
+        ...scalarData,
         updatedById,
         arrestation: effectiveData.arrestation
           ? {
@@ -552,7 +587,7 @@ class CriminalService {
               },
             }
           : undefined,
-      },
+      } as any,
       include: {
         crimeType: true,
         crimes: {
@@ -588,27 +623,21 @@ class CriminalService {
 
     const where: any = { deletedAt: null };
 
-    if (name) {
-      where.OR = [
-        { firstName: { contains: name, mode: 'insensitive' } },
-        { lastName: { contains: name, mode: 'insensitive' } },
-        { alias: { contains: name, mode: 'insensitive' } },
-      ];
-    }
+    if (name) where.AND = name.trim().split(/\s+/).filter(Boolean).map((term) => ({ OR: [
+      { firstName: { contains: term, mode: 'insensitive' } },
+      { lastName: { contains: term, mode: 'insensitive' } },
+      { alias: { contains: term, mode: 'insensitive' } },
+    ] }));
 
     if (caseNumber) {
       where.caseNumber = { contains: caseNumber, mode: 'insensitive' };
     }
 
-    if (crimeTypeId || status || dangerLevel) {
-      where.crimes = {
-        some: {
-          ...(crimeTypeId ? { crimeTypeId } : {}),
-          ...(status ? { status } : {}),
-          ...(dangerLevel ? { dangerLevel } : {}),
-        },
-      };
-    }
+    // Les filtres interrogent les crimes associés et les champs hérités affichés sur le dossier.
+    if (crimeTypeId || status || dangerLevel) where.AND = [ ...(where.AND || []), { OR: [
+      { ...(crimeTypeId ? { crimeTypeId } : {}), ...(status ? { status } : {}), ...(dangerLevel ? { dangerLevel } : {}) },
+      { crimes: { some: { ...(crimeTypeId ? { crimeTypeId } : {}), ...(status ? { status } : {}), ...(dangerLevel ? { dangerLevel } : {}) } } },
+    ] } ];
 
     const [criminals, total] = await Promise.all([
       prisma.criminal.findMany({
@@ -699,7 +728,7 @@ class CriminalService {
   }
 
   /**
-   * Supprimer (soft delete) un criminel et nettoyer les fichiers
+   * Supprimer logiquement un criminel.
    */
   async deleteCriminal(id: string, deletedById: string) {
     const criminal = await prisma.criminal.findUnique({
@@ -721,10 +750,6 @@ class CriminalService {
       },
     });
 
-    deleteFileIfSafe(criminal.photo || undefined);
-    criminal.evidences.forEach((evidence) => {
-      (evidence.fileUrls || []).forEach((url) => deleteFileIfSafe(url));
-    });
 
     return { message: 'Criminel supprimé avec succès' };
   }

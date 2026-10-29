@@ -9,6 +9,7 @@ import crimeTypeRoutes from './crimeType.routes';
 import auditRoutes from './audit.routes';
 import userRoutes from './user.routes';
 import socketRoutes from './socket.routes';
+import workflowRoutes from './workflow.routes';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use('/crime-types', crimeTypeRoutes);
 router.use('/audit', auditRoutes);
 router.use('/users', userRoutes);
 router.use('/socket', socketRoutes);
+router.use('/workflow', workflowRoutes);
 
 // Route de santé (health check)
 router.get('/health', (_req, res) => {

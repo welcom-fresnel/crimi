@@ -19,9 +19,14 @@ export const errorHandler = (
   
   // Si c'est une ApiError personnalisée
   if (err instanceof ApiError) {
+    if (err.code === 'PASSWORD_CHANGE_REQUIRED' || err.code === 'TOO_MANY_ATTEMPTS') {
+      res.status(err.statusCode).json({ success: false, code: err.code, message: err.message });
+      return;
+    }
     res.status(err.statusCode).json({
       success: false,
       message: err.message,
+      ...(err.code ? { code: err.code } : {}),
       error: config.nodeEnv === 'development' ? err.stack : undefined,
     });
     return;

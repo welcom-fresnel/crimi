@@ -8,6 +8,7 @@ import { prisma } from '../utils/prisma';
 import { ApiError } from '../utils/ApiError';
 import { config } from '../config';
 import { CreateUserDto, LoginDto, JwtPayload } from '../types';
+import { getMergedPermissions } from './permission.service';
 
 class AuthService {
   /**
@@ -83,7 +84,7 @@ class AuthService {
    */
   async login(data: LoginDto) {
     // Trouver l'utilisateur
-    const user = await prisma.user.findUnique({
+    const user = await (prisma.user as any).findUnique({
       where: { username: data.username },
       include: {
         profile: true,
@@ -98,25 +99,34 @@ class AuthService {
     if (!user) {
       throw new ApiError(401, 'Identifiants invalides');
     }
-
-    // Vérifier si l'utilisateur est actif
-    if (!user.isActive) {
-      throw new ApiError(403, 'Compte désactivé');
-    }
-
-    // Vérifier le mot de passe
+    if (user.lockedUntil && user.lockedUntil > new Date()) throw new ApiError(429, 'Trop de tentatives. Réessayez plus tard.', 'TOO_MANY_ATTEMPTS');
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
 
-    if (!isPasswordValid) {
+    if (!isPasswordValid || !user.isActive) {
+      if (user.isActive) {
+        const failureCount = await prisma.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${user.id} FOR UPDATE`;
+          const current: any = await (tx.user as any).findUnique({ where: { id: user.id }, select: { failedLoginCount: true } });
+          const failedLoginCount = (current?.failedLoginCount || 0) + 1;
+          await (tx.user as any).update({ where: { id: user.id }, data: {
+            failedLoginCount,
+            lockedUntil: failedLoginCount >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null,
+          } });
+          return failedLoginCount;
+        });
+        if (failureCount >= 5) throw new ApiError(429, 'Trop de tentatives. Réessayez plus tard.', 'TOO_MANY_ATTEMPTS');
+      }
       throw new ApiError(401, 'Identifiants invalides');
     }
+
+    if (user.failedLoginCount !== 0 || user.lockedUntil) await (prisma.user as any).update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
 
     // Générer le token JWT
     const payload: JwtPayload = {
       userId: user.id,
       username: user.username,
       email: user.email,
-      roles: user.userRoles.map(ur => ur.role.name),
+      roles: user.userRoles.map((ur: any) => ur.role.name),
     };
 
     if (!config.jwtSecret) {
@@ -126,16 +136,20 @@ class AuthService {
     const token = jwt.sign(
       payload,
       config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn } as SignOptions
+      { expiresIn: config.jwtExpiresIn, algorithm: 'HS256' } as SignOptions
     );
 
+    const roles = user.userRoles.map((ur: any) => ur.role.name);
     return {
       token,
+      mustChangePassword: Boolean(user.mustChangePassword),
+      permissions: getMergedPermissions(roles),
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
-        roles: user.userRoles.map(ur => ur.role.name),
+        roles,
+        mustChangePassword: Boolean(user.mustChangePassword),
         profile: {
           firstName: user.profile?.firstName,
           lastName: user.profile?.lastName,
@@ -169,9 +183,9 @@ class AuthService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Mettre à jour le mot de passe
-    await prisma.user.update({
+    await (prisma.user as any).update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, mustChangePassword: false, failedLoginCount: 0, lockedUntil: null },
     });
 
     return { message: 'Mot de passe modifié avec succès' };

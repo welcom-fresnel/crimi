@@ -19,7 +19,8 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    // Les erreurs React peuvent contenir des données nominatives des dossiers.
+    console.error('Erreur inattendue dans l’interface.');
   }
 
   public render() {

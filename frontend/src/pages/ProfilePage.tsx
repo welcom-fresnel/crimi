@@ -58,8 +58,8 @@ export default function ProfilePage() {
         });
         await refreshProfile();
       }
-    } catch (error) {
-      console.error('Erreur changement mot de passe:', error);
+    } catch {
+      console.error('Échec du changement de mot de passe.');
       toast.error('Erreur', {
         description: "Impossible de changer le mot de passe. Verifiez l'ancien mot de passe.",
       });

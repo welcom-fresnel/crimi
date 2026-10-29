@@ -18,7 +18,7 @@ interface User {
   roles: string[];
   profile: UserProfile;
   mustChangePassword: boolean;
-  permissions: Array<{ resource: string; actions: string[] }>;
+  permissions?: Array<{ resource: string; actions: string[] }>;
 }
 
 interface AuthContextType {
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (response.success) {
             const profile = response.data;
-            const parsedUser = { ...profile, mustChangePassword: Boolean(profile.mustChangePassword), permissions: profile.permissions || [] } as User;
+            const parsedUser = { ...profile, mustChangePassword: Boolean(profile.mustChangePassword) } as User;
             localStorage.setItem('user', JSON.stringify(parsedUser));
             setToken(storedToken);
             setUser(parsedUser);
@@ -76,8 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             clearSession();
           }
-        } catch (error) {
-          console.error('Token invalide:', error);
+        } catch {
+          console.error('Session invalide.');
           clearSession();
         }
       }
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = useCallback(async () => {
     const response = await authAPI.getProfile();
     if (!response.success) return;
-    const refreshedUser = { ...response.data, mustChangePassword: Boolean(response.data.mustChangePassword), permissions: response.data.permissions || [] } as User;
+    const refreshedUser = { ...response.data, mustChangePassword: Boolean(response.data.mustChangePassword) } as User;
     setUser(refreshedUser);
     setMustChangePassword(refreshedUser.mustChangePassword);
     setPermissions(refreshedUser.permissions);
@@ -135,8 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: `Bienvenue ${newUser.profile.firstName || ''} ${newUser.profile.lastName || ''}`.trim(),
         });
       }
-    } catch (error: unknown) {
-      console.error('Erreur de connexion:', error);
+    } catch {
+      console.error('Échec de connexion.');
 
       throw error;
     } finally {
@@ -145,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    authAPI.logout().catch(console.error);
+    authAPI.logout().catch(() => console.error('Échec de déconnexion côté serveur.'));
     clearSession(true);
 
     toast.info('Deconnexion', {

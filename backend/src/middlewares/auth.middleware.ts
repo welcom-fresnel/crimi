@@ -8,6 +8,8 @@ import { AuthRequest, JwtPayload } from '../types';
 import { config } from '../config';
 import { ApiError } from '../utils/ApiError';
 import { prisma } from '../utils/prisma';
+import { hasRolePermission } from '../services/permission.service';
+import { auditService } from '../services/audit.service';
 
 /**
  * Middleware pour vérifier le token JWT
@@ -28,10 +30,10 @@ export const authenticate = async (
     const token = authHeader.substring(7); // Retirer "Bearer "
     
     // Vérifier et décoder le token
-    const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as JwtPayload;
     
     // Vérifier si l'utilisateur existe et est actif
-    const user = await prisma.user.findUnique({
+    const user = await (prisma.user as any).findUnique({
       where: { id: decoded.userId },
       include: {
         userRoles: {
@@ -51,21 +53,29 @@ export const authenticate = async (
       userId: user.id,
       username: user.username,
       email: user.email,
-      roles: user.userRoles.map(ur => ur.role.name),
+      roles: user.userRoles.map((ur: any) => ur.role.name),
+      mustChangePassword: user.mustChangePassword,
     };
+
+    const allowedDuringPasswordChange = ['/api/auth/change-password', '/api/auth/profile', '/api/auth/logout'];
+    if (user.mustChangePassword && !allowedDuringPasswordChange.some((route) => req.originalUrl.split('?')[0] === route)) {
+      throw new ApiError(403, 'Vous devez modifier votre mot de passe avant de continuer', 'PASSWORD_CHANGE_REQUIRED');
+    }
     
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      next(new ApiError(401, 'Token invalide'));
-    } else if (error instanceof jwt.TokenExpiredError) {
-      next(new ApiError(401, 'Token expiré'));
-    } else {
-      next(error);
+    let deniedError: unknown = error;
+    if (error instanceof jwt.TokenExpiredError) {
+      deniedError = new ApiError(401, 'Token expiré');
+    } else if (error instanceof jwt.JsonWebTokenError) {
+      deniedError = new ApiError(401, 'Token invalide');
     }
+    if (deniedError instanceof ApiError && (deniedError.statusCode === 401 || deniedError.statusCode === 403)) {
+      try { await auditDenied(req, deniedError); } catch (auditError) { next(auditError); return; }
+    }
+    next(deniedError);
   }
 };
-
 /**
  * Middleware pour vérifier les permissions basées sur les rôles
  * @param resource - Ressource à accéder (ex: 'criminals')
@@ -83,9 +93,8 @@ export const authorize = (resource: string, action: string) => {
       }
       
       const { roles } = req.user;
-      
       // Vérifier les permissions
-      const hasPermission = await checkPermission(roles, resource, action);
+      const hasPermission = hasRolePermission(roles, resource, action);
       
       if (!hasPermission) {
         throw new ApiError(
@@ -96,36 +105,17 @@ export const authorize = (resource: string, action: string) => {
       
       next();
     } catch (error) {
+      if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+        try { await auditDenied(req, error); } catch (auditError) { next(auditError); return; }
+      }
       next(error);
     }
   };
 };
 
-/**
- * Fonction utilitaire pour vérifier les permissions
- */
-const checkPermission = async (
-  roles: string[],
-  resource: string,
-  action: string
-): Promise<boolean> => {
-  // Récupérer les rôles avec leurs permissions
-  const rolesWithPermissions = await prisma.role.findMany({
-    where: {
-      name: {
-        in: roles,
-      },
-    },
-  });
-  
-  // Vérifier si au moins un rôle a la permission
-  return rolesWithPermissions.some(role => {
-    const permissions = role.permissions as any[];
-    return permissions.some(
-      (permission: any) =>
-        permission.resource === resource &&
-        permission.actions.includes(action)
-    );
-  });
-};
-
+const auditDenied = async (req: AuthRequest, error: ApiError) => auditService.createAuditLog({
+  userId: req.user?.userId,
+  action: 'DENIED', entity: 'USER', entityId: req.user?.userId,
+  changes: { status: error.statusCode, reason: error.message },
+  ipAddress: req.ip || req.connection.remoteAddress, userAgent: req.headers['user-agent'],
+});

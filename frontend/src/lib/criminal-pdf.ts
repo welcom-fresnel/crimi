@@ -96,7 +96,7 @@ const truncateText = (pdf: jsPDF, text: string, maxWidth: number) => {
   return `${shortened}…`;
 };
 
-export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[]) {
+export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[], generatedBy = 'Utilisateur autorisé') {
   const { jsPDF: JsPdfConstructor } = await import('jspdf');
   const pdf = new JsPdfConstructor({ unit: 'mm', format: 'a4', compress: true });
   const fullName = `${criminal.lastName} ${criminal.firstName}`.trim();
@@ -287,10 +287,10 @@ export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[
     ], 3, leftWidth);
     addFieldRow([
       { label: 'Genre', value: criminal.gender },
-      { label: 'Telephone', value: criminal.phoneNumber, span: 2 },
+      { label: 'Telephone', value: criminal.phoneNumber || 'Non communiqué', span: 2 },
     ], 3, leftWidth);
-    addFieldRow([{ label: 'Derniere adresse connue', value: criminal.lastKnownAddress, span: 3 }], 3, leftWidth);
-    addFieldRow([{ label: 'Empreinte / reference biometrique', value: criminal.fingerprint, span: 3 }], 3, leftWidth);
+    addFieldRow([{ label: 'Derniere adresse connue', value: criminal.lastKnownAddress || 'Non communiqué', span: 3 }], 3, leftWidth);
+    addFieldRow([{ label: 'Empreinte / reference biometrique', value: criminal.fingerprint || 'Non communiqué', span: 3 }], 3, leftWidth);
     const imageSize = fitImage(portrait, photoWidth, photoHeight);
     const photoX = MARGIN + leftWidth + photoGap + (photoWidth - imageSize.width) / 2;
     addImage(portrait, photoX, identityStartY, photoWidth, photoHeight);
@@ -307,10 +307,10 @@ export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[
     ]);
     addFieldRow([
       { label: 'Genre', value: criminal.gender },
-      { label: 'Telephone', value: criminal.phoneNumber },
+      { label: 'Telephone', value: criminal.phoneNumber || 'Non communiqué' },
     ]);
-    addFieldRow([{ label: 'Derniere adresse connue', value: criminal.lastKnownAddress, span: 3 }]);
-    addFieldRow([{ label: 'Empreinte / reference biometrique', value: criminal.fingerprint, span: 3 }]);
+    addFieldRow([{ label: 'Derniere adresse connue', value: criminal.lastKnownAddress || 'Non communiqué', span: 3 }]);
+    addFieldRow([{ label: 'Empreinte / reference biometrique', value: criminal.fingerprint || 'Non communiqué', span: 3 }]);
   }
   if (portraitUnavailable) addField('Photo associee au dossier', 'Image non disponible');
 
@@ -387,7 +387,7 @@ export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[
       addMetaLine(`Enregistre le ${formatDateTime(evidence.createdAt)}${creator}`);
 
       const thumbnails: PdfThumbnail[] = [];
-      for (const [fileIndex, fileUrl] of evidence.fileUrls.entries()) {
+      for (const [fileIndex, fileUrl] of (evidence.fileUrls || []).entries()) {
         const fileName = filenameFromUrl(fileUrl);
         if (/\.(jpe?g|png|gif|webp|bmp)$/i.test(fileName)) {
           try {
@@ -454,12 +454,13 @@ export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[
   ], 2);
 
   const pageCount = pdf.getNumberOfPages();
+  const generatedAt = new Date().toLocaleString('fr-FR');
   for (let page = 1; page <= pageCount; page += 1) {
     pdf.setPage(page);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(...MUTED_COLOR);
-    pdf.text(`Dossier ${displayValue(criminal.caseNumber || criminal.fileNumber)} - Document confidentiel`, MARGIN, PAGE_HEIGHT - 9);
+    pdf.text(truncateText(pdf, `Document confidentiel, généré par ${generatedBy} le ${generatedAt}`, CONTENT_WIDTH - 25), MARGIN, PAGE_HEIGHT - 9);
     pdf.text(`Page ${page} / ${pageCount}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 9, { align: 'right' });
   }
 

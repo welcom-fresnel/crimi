@@ -11,6 +11,8 @@ const router = Router();
 // Toutes les routes nécessitent une authentification
 router.use(authenticate);
 
+router.get('/verify', authorize('audit_logs', 'read'), auditController.verifyChain);
+
 /**
  * @route   GET /api/audit
  * @desc    Obtenir tous les journaux d'audit

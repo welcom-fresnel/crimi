@@ -86,7 +86,7 @@ export interface UserListItem {
 }
 
 interface CriminalWritePayload {
-  caseNumber: string;
+  caseNumber?: never;
   firstName: string;
   lastName: string;
   alias?: string;
@@ -148,6 +148,8 @@ const api = axios.create({
   },
 });
 
+export const apiClient = api;
+
 // Intercepteur pour ajouter le token JWT automatiquement
 api.interceptors.request.use(
   (config) => {
@@ -162,15 +164,21 @@ api.interceptors.request.use(
   }
 );
 
-// Intercepteur pour gÃƒÂ©rer les erreurs
+export function handleApiAuthError(error: { response?: { status?: number; data?: { code?: string } }; config?: { url?: string } }) {
+  if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  }
+  if (error.response?.status === 403 && error.response?.data?.code === 'PASSWORD_CHANGE_REQUIRED') {
+    window.dispatchEvent(new CustomEvent('auth:password-change-required'));
+  }
+  return error;
+}
+
+// Intercepteur pour gérer les erreurs d'authentification.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-    }
-    if (error.response?.status === 403 && error.response?.data?.code === 'PASSWORD_CHANGE_REQUIRED')
-      window.dispatchEvent(new CustomEvent('auth:password-change-required'));
+    handleApiAuthError(error);
     return Promise.reject(error);
   }
 );
@@ -210,6 +218,15 @@ export const criminalsAPI = {
   getAll: async (page = 1, limit = 10) => {
     const response = await api.get<ApiResponse<Criminal[]>>(`/criminals?page=${page}&limit=${limit}`);
     return response.data;
+  },
+
+  getStats: async () => {
+    const response = await api.get<ApiResponse<{ total: number; byStatus: Record<string, number> }>>('/criminals/stats');
+    return response.data;
+  },
+
+  exportLog: async (id: string, purpose: 'download' | 'print') => {
+    return api.post(`/criminals/${id}/export-log`, { format: 'pdf', purpose });
   },
 
   getById: async (id: string) => {

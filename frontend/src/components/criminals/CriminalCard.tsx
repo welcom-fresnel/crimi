@@ -6,6 +6,7 @@ import { Eye, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DangerGauge } from '@/components/hud';
 import { CriminalPhoto } from './CriminalPhoto';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface CriminalCardProps {
   criminal: Criminal;
@@ -13,6 +14,7 @@ interface CriminalCardProps {
 
 export function CriminalCard({ criminal }: CriminalCardProps) {
   const navigate = useNavigate();
+  const { can } = usePermissions();
 
   return (
     <Card className={`criminal-record-card glass-card status-frame-${criminal.status.toLowerCase()}`}>
@@ -42,7 +44,7 @@ export function CriminalCard({ criminal }: CriminalCardProps) {
           </div>
         </div>
         <div className="flex gap-2 mt-4 pt-4 border-t">
-          <Button
+          {can('criminals', 'update') && <Button
             variant="outline"
             size="sm"
             className="flex-1"
@@ -50,7 +52,7 @@ export function CriminalCard({ criminal }: CriminalCardProps) {
           >
             <Eye className="h-4 w-4" />
             Ouvrir
-          </Button>
+          </Button>}
           <Button
             variant="outline"
             size="sm"

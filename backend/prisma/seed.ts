@@ -5,6 +5,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { ROLE_PERMISSIONS } from '../src/config/permissions';
+import { randomBytes } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -16,7 +17,7 @@ async function main() {
 
   const adminRole = await prisma.role.upsert({
     where: { name: 'ADMIN' },
-    update: {},
+    update: { permissions: ROLE_PERMISSIONS.ADMIN as unknown as Prisma.InputJsonValue },
     create: {
       name: 'ADMIN',
       description: 'Administrateur système avec tous les droits',
@@ -26,7 +27,7 @@ async function main() {
 
   const agentRole = await prisma.role.upsert({
     where: { name: 'AGENT' },
-    update: {},
+    update: { permissions: ROLE_PERMISSIONS.AGENT as unknown as Prisma.InputJsonValue },
     create: {
       name: 'AGENT',
       description: 'Agent de sécurité avec droits de gestion des criminels',
@@ -36,7 +37,7 @@ async function main() {
 
   await prisma.role.upsert({
     where: { name: 'VIEWER' },
-    update: {},
+    update: { permissions: ROLE_PERMISSIONS.VIEWER as unknown as Prisma.InputJsonValue },
     create: {
       name: 'VIEWER',
       description: 'Utilisateur en lecture seule',
@@ -49,16 +50,20 @@ async function main() {
   // ==================== CRÉATION DES UTILISATEURS ====================
   console.log('👤 Création des utilisateurs...');
 
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD || randomBytes(24).toString('base64url');
+  if (process.env.NODE_ENV === 'production' && seedPassword.length < 12) throw new Error('SEED_ADMIN_PASSWORD doit contenir au moins 12 caractères en production');
+  if (!process.env.SEED_ADMIN_PASSWORD) console.log(`Mot de passe administrateur initial (à conserver une seule fois): ${seedPassword}`);
+  const hashedPassword = await bcrypt.hash(seedPassword, 10);
 
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@securit-afrique.com' },
-    update: {},
+    update: { password: hashedPassword, mustChangePassword: true },
     create: {
       username: 'admin',
       email: 'admin@securit-afrique.com',
       password: hashedPassword,
       isActive: true,
+      mustChangePassword: true,
       profile: {
         create: {
           firstName: 'Super',
@@ -279,13 +284,10 @@ async function main() {
   console.log('═══════════════════════════════════════════════════');
   console.log('✅ Seed terminé avec succès!');
   console.log('═══════════════════════════════════════════════════');
-  console.log('\n📋 Comptes de test:');
-  console.log('   Admin:');
-  console.log('     Email: admin@securit-afrique.com');
-  console.log('     Mot de passe: admin123');
-  console.log('   Agent:');
-  console.log('     Email: agent@securit-afrique.com');
-  console.log('     Mot de passe: admin123');
+  console.log('\n📋 Compte administrateur initial:');
+  console.log('   Identifiant de connexion: admin');
+  console.log('   Email: admin@securit-afrique.com');
+  console.log('   Mot de passe: utilisez SEED_ADMIN_PASSWORD ou le mot de passe aléatoire affiché au début du seed.');
   console.log('═══════════════════════════════════════════════════\n');
 }
 

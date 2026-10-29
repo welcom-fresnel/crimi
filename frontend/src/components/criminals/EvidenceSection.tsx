@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import { Evidence } from '@/types';
 import { criminalsAPI } from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,8 +65,8 @@ interface EvidenceEditFields {
 }
 
 export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
-  const { user } = useAuth();
-  const canEditEvidence = user?.roles.some((role) => role === 'ADMIN' || role === 'AGENT') ?? false;
+  const { can } = usePermissions();
+  const canEditEvidence = can('criminals', 'update');
   const [evidences, setEvidences] = useState<Evidence[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
@@ -130,8 +130,8 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
         }
         setImageSources(Object.fromEntries(loadedImages.filter((image) => image.source).map((image) => [image.key, image.source])));
         setUnavailableImages(new Set(loadedImages.filter((image) => !image.source).map((image) => image.key)));
-      } catch (error) {
-        console.error('Erreur de chargement des pieces a conviction:', error);
+      } catch {
+        console.error('Échec du chargement des pièces à conviction.');
         if (active) toast.error('Impossible de charger les pieces a conviction');
       } finally {
         if (active) setIsLoading(false);
@@ -303,6 +303,7 @@ export default function EvidenceSection({ criminalId }: EvidenceSectionProps) {
                   })}
                 </div>
               )}
+              {!evidence.fileUrls?.length && <p className="text-xs text-muted-foreground">Fichiers : Non communiqué</p>}
               <p className="text-xs text-muted-foreground">
                 Enregistre le {new Date(evidence.createdAt).toLocaleString('fr-FR')}
                 {evidence.createdBy?.username ? ` par ${evidence.createdBy.username}` : ''}

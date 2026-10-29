@@ -66,7 +66,7 @@ class SocketService {
         const cleanToken = token.startsWith('Bearer ') ? token.substring(7) : token;
 
         // Vérifier le token
-        const decoded = jwt.verify(cleanToken, config.jwtSecret) as JwtPayload;
+        const decoded = jwt.verify(cleanToken, config.jwtSecret, { algorithms: ['HS256'] }) as JwtPayload;
 
         // Attacher les informations utilisateur au socket
         (socket as AuthenticatedSocket).user = decoded;
@@ -191,14 +191,18 @@ class SocketService {
   notifyCriminalCreated(payload: CriminalCreatedPayload): void {
     console.log(`📢 Notification: Criminel créé par ${payload.createdBy.username}`);
     
-    this.emitToAllExcept(payload.createdBy.id, SocketEvent.CRIMINAL_CREATED, payload);
+    const eventPayload = config.socketFullPayload ? payload : {
+      criminalId: payload.criminal.id, caseNumber: payload.criminal.caseNumber,
+      by: { id: payload.createdBy.id, username: payload.createdBy.username }, timestamp: payload.timestamp,
+    };
+    this.emitToAllExcept(payload.createdBy.id, SocketEvent.CRIMINAL_CREATED, eventPayload);
     
     // Notification générique
     const notification: NotificationPayload = {
       type: 'info',
       title: 'Nouveau criminel enregistré',
       message: `Un nouveau dossier criminel a été créé par ${payload.createdBy.username}`,
-      data: payload.criminal,
+      data: config.socketFullPayload ? payload.criminal : { id: payload.criminal.id, caseNumber: payload.criminal.caseNumber },
       timestamp: new Date(),
       userId: payload.createdBy.id,
       username: payload.createdBy.username,
@@ -213,13 +217,17 @@ class SocketService {
   notifyCriminalUpdated(payload: CriminalUpdatedPayload): void {
     console.log(`📢 Notification: Criminel mis à jour par ${payload.updatedBy.username}`);
     
-    this.emitToAllExcept(payload.updatedBy.id, SocketEvent.CRIMINAL_UPDATED, payload);
+    const eventPayload = config.socketFullPayload ? payload : {
+      criminalId: payload.criminal.id, caseNumber: payload.criminal.caseNumber,
+      by: { id: payload.updatedBy.id, username: payload.updatedBy.username }, timestamp: payload.timestamp,
+    };
+    this.emitToAllExcept(payload.updatedBy.id, SocketEvent.CRIMINAL_UPDATED, eventPayload);
     
     const notification: NotificationPayload = {
       type: 'warning',
       title: 'Dossier criminel mis à jour',
       message: `Le dossier ${payload.criminal.caseNumber} a été modifié par ${payload.updatedBy.username}`,
-      data: payload.criminal,
+      data: config.socketFullPayload ? payload.criminal : { id: payload.criminal.id, caseNumber: payload.criminal.caseNumber },
       timestamp: new Date(),
       userId: payload.updatedBy.id,
       username: payload.updatedBy.username,
@@ -234,7 +242,11 @@ class SocketService {
   notifyCriminalDeleted(payload: CriminalDeletedPayload): void {
     console.log(`📢 Notification: Criminel supprimé par ${payload.deletedBy.username}`);
     
-    this.emitToAllExcept(payload.deletedBy.id, SocketEvent.CRIMINAL_DELETED, payload);
+    const eventPayload = config.socketFullPayload ? payload : {
+      criminalId: payload.criminalId, caseNumber: payload.caseNumber,
+      by: { id: payload.deletedBy.id, username: payload.deletedBy.username }, timestamp: payload.timestamp,
+    };
+    this.emitToAllExcept(payload.deletedBy.id, SocketEvent.CRIMINAL_DELETED, eventPayload);
     
     const notification: NotificationPayload = {
       type: 'error',

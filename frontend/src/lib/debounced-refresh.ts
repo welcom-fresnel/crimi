@@ -1,0 +1,16 @@
+export function createDebouncedRefresh(callback: () => void, delay = 1500) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return {
+    schedule() {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = undefined;
+        callback();
+      }, delay);
+    },
+    cancel() {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+    },
+  };
+}

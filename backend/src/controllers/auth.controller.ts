@@ -6,6 +6,9 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { authService } from '../services/auth.service';
 import { auditService } from '../services/audit.service';
+import { prisma } from '../utils/prisma';
+import bcrypt from 'bcryptjs';
+import { getMergedPermissions } from '../services/permission.service';
 
 class AuthController {
   /**
@@ -29,8 +32,10 @@ class AuthController {
    * Connexion d'un utilisateur
    */
   async login(req: AuthRequest, res: Response, next: NextFunction) {
+    let authenticated = false;
     try {
       const result = await authService.login(req.body);
+      authenticated = true;
       
       // Enregistrer l'audit de connexion
       if (result.user.id) {
@@ -50,6 +55,14 @@ class AuthController {
         data: result,
       });
     } catch (error) {
+      if (authenticated) { next(error); return; }
+      const username = req.body?.username;
+      const user = username ? await (prisma.user as any).findUnique({ where: { username }, select: { id: true, password: true, isActive: true, lockedUntil: true } }) : null;
+      const validPassword = user ? await bcrypt.compare(req.body.password || '', user.password) : false;
+      const reason = !user ? 'Utilisateur inconnu' : user.lockedUntil && user.lockedUntil > new Date() ? 'Compte temporairement verrouillé' : !user.isActive ? 'Compte désactivé' : !validPassword ? 'Mot de passe incorrect' : 'Échec de connexion';
+      try {
+        await auditService.createAuditLog({ userId: user?.id, action: 'LOGIN', entity: 'USER', entityId: user?.id, changes: { result: 'Échec', reason }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+      } catch (auditError) { next(auditError); return; }
       next(error);
     }
   }
@@ -103,6 +116,7 @@ class AuthController {
           username: true,
           email: true,
           isActive: true,
+          mustChangePassword: true,
           createdAt: true,
           profile: true,
           userRoles: {
@@ -112,10 +126,16 @@ class AuthController {
           },
         },
       });
+
+      const roles = (user?.userRoles || []).map((userRole: any) => userRole.role.name);
       
       res.status(200).json({
         success: true,
-        data: user,
+        data: {
+          ...user,
+          mustChangePassword: Boolean(user?.mustChangePassword),
+          permissions: getMergedPermissions(roles),
+        },
       });
     } catch (error) {
       next(error);

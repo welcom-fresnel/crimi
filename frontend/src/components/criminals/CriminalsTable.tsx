@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DangerGauge } from '@/components/hud';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface CriminalsTableProps {
   criminals: Criminal[];
@@ -21,6 +22,7 @@ interface CriminalsTableProps {
 
 export function CriminalsTable({ criminals }: CriminalsTableProps) {
   const navigate = useNavigate();
+  const { can } = usePermissions();
 
   const formatDateSafe = (value?: string) => {
     if (!value) return null;
@@ -87,7 +89,7 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button
+                    {can('criminals', 'update') && <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
@@ -95,7 +97,7 @@ export function CriminalsTable({ criminals }: CriminalsTableProps) {
                       onClick={() => navigate(`/criminals/${criminal.id}`)}
                     >
                       <Eye className="h-3 w-3" />
-                    </Button>
+                    </Button>}
                     <Button
                       variant="ghost"
                       size="icon"

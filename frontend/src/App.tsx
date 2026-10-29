@@ -18,6 +18,16 @@ import HistoryPage from './pages/HistoryPage';
 import AdminUsers from './pages/AdminUsers';
 import ProfilePage from './pages/ProfilePage';
 import NotFound from './pages/NotFound';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useEffect } from 'react';
+import { toast } from 'sonner';
+
+function PermissionGuard({ action, children }: { action: 'create' | 'update'; children: React.ReactNode }) {
+  const { can } = usePermissions();
+  const allowed = can('criminals', action);
+  useEffect(() => { if (!allowed) toast.error('Accès non autorisé'); }, [allowed]);
+  return allowed ? <>{children}</> : <Navigate to="/criminals" replace />;
+}
 
 const queryClient = new QueryClient();
 
@@ -67,9 +77,9 @@ function AppRoutes() {
       <Route element={<ProtectedLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/criminals" element={<CriminalsList />} />
-        <Route path="/criminals/new" element={<CriminalNew />} />
+        <Route path="/criminals/new" element={<PermissionGuard action="create"><CriminalNew /></PermissionGuard>} />
         <Route path="/criminals/:id" element={<CriminalDetail />} />
-        <Route path="/criminals/:id/edit" element={<CriminalEdit />} />
+        <Route path="/criminals/:id/edit" element={<PermissionGuard action="update"><CriminalEdit /></PermissionGuard>} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route element={<AdminOnlyLayout />}>

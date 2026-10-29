@@ -7,21 +7,38 @@ import EvidenceSection from '@/components/criminals/EvidenceSection';
 import { ArrowLeft, Download, Pencil, Printer, User, Calendar, MapPin, FileText, Shield, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { criminalsAPI } from '@/services/api';
 import { createCriminalPdf, getCriminalPdfFileName } from '@/lib/criminal-pdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DangerGauge, PageTransition } from '@/components/hud';
 import { CriminalPhoto } from '@/components/criminals/CriminalPhoto';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/contexts/AuthContext';
+import { AxiosError } from 'axios';
 
 export default function CriminalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  const { user } = useAuth();
   const { criminals, isLoading } = useCriminals();
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [loadedCriminal, setLoadedCriminal] = useState<import('@/types').Criminal>();
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const listedCriminal = criminals.find((c) => c.id === id);
+  const criminal = listedCriminal || loadedCriminal;
 
-  const criminal = criminals.find((c) => c.id === id);
+  useEffect(() => {
+    if (!id || listedCriminal) return;
+    let active = true;
+    setLoadingDetail(true);
+    criminalsAPI.getById(id).then((response) => {
+      if (active && response.success) setLoadedCriminal(response.data);
+    }).catch(() => undefined).finally(() => { if (active) setLoadingDetail(false); });
+    return () => { active = false; };
+  }, [id, listedCriminal]);
 
   const formatDate = (value?: string) => {
     if (!value) return 'Non renseignee';
@@ -47,8 +64,13 @@ export default function CriminalDetail() {
 
     setIsExportingPdf(true);
     try {
+      try {
+        await criminalsAPI.exportLog(criminal.id, printAfterExport ? 'print' : 'download');
+      } catch (error) {
+        if (!(error instanceof AxiosError) || error.response?.status !== 404) throw error;
+      }
       const evidenceResponse = await criminalsAPI.getEvidences(criminal.id);
-      const pdf = await createCriminalPdf(criminal, evidenceResponse.data || []);
+      const pdf = await createCriminalPdf(criminal, evidenceResponse.data || [], user?.username || 'Utilisateur autorisé');
       const fileName = getCriminalPdfFileName(criminal);
 
       if (printAfterExport && printWindow) {
@@ -60,16 +82,18 @@ export default function CriminalDetail() {
       }
     } catch (error) {
       printWindow?.close();
-      console.error('Erreur de generation du PDF du dossier:', error);
+      console.error('Échec de génération du PDF du dossier.');
       toast.error('Export PDF impossible', {
-        description: error instanceof Error ? error.message : 'Une erreur est survenue pendant la generation du PDF.',
+        description: error instanceof AxiosError
+          ? (error.response?.data as { message?: string } | undefined)?.message || 'Impossible d’enregistrer l’export du dossier.'
+          : error instanceof Error ? error.message : 'Une erreur est survenue pendant la génération du PDF.',
       });
     } finally {
       setIsExportingPdf(false);
     }
   };
 
-  if (!criminal && (isLoading || criminals.length === 0)) {
+  if (!criminal && (isLoading || loadingDetail || criminals.length === 0)) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Chargement du dossier...</p>
@@ -112,10 +136,10 @@ export default function CriminalDetail() {
             <Download className="h-4 w-4 mr-2" />
             {isExportingPdf ? 'Preparation...' : 'PDF'}
           </Button>
-          <Button onClick={() => navigate(`/criminals/${id}/edit`)}>
+          {can('criminals', 'update') && <Button onClick={() => navigate(`/criminals/${id}/edit`)}>
             <Pencil className="h-4 w-4 mr-2" />
             Modifier
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -169,6 +193,10 @@ export default function CriminalDetail() {
                   <dt className="text-sm text-muted-foreground">Nationalite</dt>
                   <dd className="font-medium">{criminal.nationality || 'Non renseignee'}</dd>
                 </div>
+                <div><dt className="text-sm text-muted-foreground">Genre</dt><dd className="font-medium">{criminal.gender || 'Non communiqué'}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Téléphone</dt><dd className="font-medium">{criminal.phoneNumber || 'Non communiqué'}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Dernière adresse connue</dt><dd className="font-medium">{criminal.lastKnownAddress || 'Non communiqué'}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Empreinte</dt><dd className="font-medium">{criminal.fingerprint || 'Non communiqué'}</dd></div>
                 <div>
                   <dt className="text-sm text-muted-foreground">N deg Dossier</dt>
                   <dd className="font-medium">{criminal.caseNumber || criminal.fileNumber}</dd>
@@ -257,7 +285,7 @@ export default function CriminalDetail() {
             <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-4 w-4 text-primary" /> DONNEES D’ARRESTATION</CardTitle></CardHeader>
             <CardContent>
               <dl className="detail-field-grid grid gap-4 sm:grid-cols-2">
-                <div><dt className="detail-field-label">Date d’arrestation</dt><dd className="detail-field-value">{formatDate(criminal.arrestation?.arrestDate || criminal.arrestDate || criminal.crimeDate)}</dd></div>
+                <div><dt className="detail-field-label">Date d’arrestation</dt><dd className="detail-field-value">{formatDate(criminal.arrestation?.arrestDate || criminal.arrestDate)}</dd></div>
                 <div><dt className="detail-field-label">Lieu d’arrestation</dt><dd className="detail-field-value">{criminal.arrestation?.arrestLocation || criminal.arrestLocation || 'Non renseigne'}</dd></div>
                 <div><dt className="detail-field-label">Unite d’intervention</dt><dd className="detail-field-value">{criminal.arrestation?.arrestingUnit || 'Non renseignee'}</dd></div>
                 <div><dt className="detail-field-label">Agent responsable</dt><dd className="detail-field-value">{criminal.arrestation?.arrestingOfficer || 'Non renseigne'}</dd></div>

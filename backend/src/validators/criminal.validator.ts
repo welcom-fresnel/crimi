@@ -6,9 +6,10 @@ import { body } from 'express-validator';
 
 export const createCriminalValidator = [
   body('caseNumber')
+    .optional()
     .trim()
     .notEmpty()
-    .withMessage('Le numéro de dossier est requis'),
+    .withMessage('Le numéro de dossier ne peut pas être vide'),
   
   body('firstName')
     .trim()
@@ -35,6 +36,8 @@ export const createCriminalValidator = [
     .optional()
     .isIn(['MALE', 'FEMALE', 'OTHER'])
     .withMessage('Genre invalide'),
+  body('personSituation').optional().isIn(['UNKNOWN', 'AT_LARGE', 'IN_CUSTODY', 'RELEASED', 'DECEASED']).withMessage('Situation de la personne invalide'),
+  body('offenseState').optional().isIn(['UNDER_INVESTIGATION', 'REFERRED', 'ADJUDICATED', 'CLOSED']).withMessage('État de l’infraction invalide'),
   
   body('status')
     .optional()
@@ -82,6 +85,8 @@ export const createCriminalValidator = [
 ];
 
 export const updateCriminalValidator = [
+  body('personSituation').optional().isIn(['UNKNOWN', 'AT_LARGE', 'IN_CUSTODY', 'RELEASED', 'DECEASED']).withMessage('Situation de la personne invalide'),
+  body('offenseState').optional().isIn(['UNDER_INVESTIGATION', 'REFERRED', 'ADJUDICATED', 'CLOSED']).withMessage('État de l’infraction invalide'),
   body('firstName')
     .optional()
     .trim()
@@ -149,5 +154,20 @@ export const createCrimeValidator = [
     .optional()
     .isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
     .withMessage('Niveau de danger invalide'),
+];
+
+const evidenceCategoryValidator = (field: string) => body(field).optional().isIn(['WEAPON', 'DOCUMENT', 'DIGITAL', 'BIOLOGICAL', 'OTHER']).withMessage('La categorie de preuve est invalide');
+const evidenceDateValidator = (field: string) => body(field).optional({ values: 'null' }).isISO8601().withMessage('La date de collecte doit être au format ISO8601');
+export const updateEvidenceValidator = [
+  body('title').optional().isString().withMessage('Le titre est invalide'),
+  body('description').optional().isString().withMessage('La description est invalide'),
+  evidenceCategoryValidator('category'), evidenceDateValidator('collectedAt'),
+  body('collectedAtLocation').optional().isString().withMessage('Le lieu de collecte est invalide'),
+];
+export const createEvidenceValidator = [
+  body('title').optional().isString().withMessage('Le titre est invalide'),
+  body('description').optional().isString().withMessage('La description est invalide'),
+  evidenceCategoryValidator('category'), evidenceDateValidator('collectedAt'),
+  body('collectedAtLocation').optional().isString().withMessage('Le lieu de collecte est invalide'),
 ];
 

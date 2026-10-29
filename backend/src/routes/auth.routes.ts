@@ -7,8 +7,17 @@ import { authController } from '../controllers/auth.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import { registerValidator, loginValidator, changePasswordValidator } from '../validators/auth.validator';
+import rateLimit from 'express-rate-limit';
+import { auditLog } from '../middlewares/audit.middleware';
 
 const router = Router();
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => res.status(429).json({ success: false, code: 'TOO_MANY_ATTEMPTS', message: 'Trop de tentatives. Réessayez plus tard.' }),
+});
 
 /**
  * @route   POST /api/auth/register
@@ -20,6 +29,7 @@ router.post(
   authenticate,
   authorize('users', 'create'),
   validate(registerValidator),
+  auditLog('CREATE', 'USER'),
   authController.register
 );
 
@@ -30,6 +40,7 @@ router.post(
  */
 router.post(
   '/login',
+  loginRateLimit,
   validate(loginValidator),
   authController.login
 );

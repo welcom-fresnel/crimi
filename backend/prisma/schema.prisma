@@ -18,6 +18,9 @@ model User {
   email     String   @unique
   password  String   // Mot de passe hashé
   isActive  Boolean  @default(true)
+  failedLoginCount Int @default(0)
+  lockedUntil DateTime?
+  mustChangePassword Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -31,6 +34,14 @@ model User {
   arrestationsCreated Arrestation[] @relation("ArrestationCreatedBy")
   crimesCreated Crime[] @relation("CrimeCreatedBy")
   crimesUpdated Crime[] @relation("CrimeUpdatedBy")
+  proceduresCreated Procedure[] @relation("ProcedureCreatedBy")
+  decisionsMade Decision[] @relation("DecisionMadeBy")
+  validationsSubmitted Validation[] @relation("ValidationSubmittedBy")
+  validationsReviewed Validation[] @relation("ValidationReviewedBy")
+  requestsCreated Demande[] @relation("DemandeCreatedBy")
+  requestsReviewed Demande[] @relation("DemandeReviewedBy")
+  versionsCreated DossierVersion[] @relation("VersionCreatedBy")
+  resultsPublished ResultatPublie[] @relation("ResultPublishedBy")
 
   @@map("users")
 }
@@ -135,6 +146,8 @@ model Criminal {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
+  personSituation String    @default("UNKNOWN")
+  offenseState    String    @default("UNDER_INVESTIGATION")
 
   // Relations
   crimeType   CrimeType @relation(fields: [crimeTypeId], references: [id])
@@ -143,6 +156,8 @@ model Criminal {
   evidences   Evidence[]
   arrestation Arrestation?
   crimes      Crime[]
+  procedures  Procedure[]
+  dossierVersions DossierVersion[]
 
   @@index([caseNumber])
   @@index([firstName, lastName])
@@ -180,6 +195,7 @@ model Evidence {
   collectedAt         DateTime?
   collectedAtLocation String?
   fileUrls            String[]
+  fileHashes          String[] @default([])
   createdById         String
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -218,12 +234,115 @@ model Crime {
   @@map("crimes")
 }
 
+model Procedure {
+  id          String   @id @default(uuid())
+  criminalId  String
+  reference   String   @unique
+  status      String   @default("OPEN")
+  summary     String?  @db.Text
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  criminal    Criminal @relation(fields: [criminalId], references: [id], onDelete: Restrict)
+  createdBy   User     @relation("ProcedureCreatedBy", fields: [createdById], references: [id])
+  decisions   Decision[]
+  validations Validation[]
+  requests    Demande[]
+  @@index([criminalId])
+  @@map("procedures")
+}
+
+model Decision {
+  id          String   @id @default(uuid())
+  procedureId String
+  type        String
+  reason      String   @db.Text
+  decidedAt   DateTime @default(now())
+  decidedById String
+  procedure   Procedure @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+  decidedBy   User @relation("DecisionMadeBy", fields: [decidedById], references: [id])
+  peine       Peine?
+  @@index([procedureId])
+  @@map("decisions")
+}
+
+model Peine {
+  id           String   @id @default(uuid())
+  decisionId   String   @unique
+  nature       String
+  durationDays Int?
+  notes        String?  @db.Text
+  decision     Decision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  @@map("peines")
+}
+
+model Validation {
+  id            String   @id @default(uuid())
+  procedureId   String
+  status        String   @default("DRAFT")
+  submittedById String
+  reviewerId    String?
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  reason        String?  @db.Text
+  procedure     Procedure @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+  submittedBy   User @relation("ValidationSubmittedBy", fields: [submittedById], references: [id])
+  reviewer      User? @relation("ValidationReviewedBy", fields: [reviewerId], references: [id], onDelete: Restrict)
+  @@index([procedureId, status])
+  @@map("validations")
+}
+
+model DossierVersion {
+  id          String   @id @default(uuid())
+  criminalId  String
+  version     Int
+  snapshot    Json
+  reason      String?
+  createdById String
+  createdAt   DateTime @default(now())
+  criminal    Criminal @relation(fields: [criminalId], references: [id], onDelete: Restrict)
+  createdBy   User @relation("VersionCreatedBy", fields: [createdById], references: [id])
+  @@unique([criminalId, version])
+  @@map("dossier_versions")
+}
+
+model Demande {
+  id          String   @id @default(uuid())
+  procedureId String
+  type        String
+  payload     Json
+  status      String   @default("DRAFT")
+  createdById String
+  reviewerId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  reviewedAt  DateTime?
+  reason      String?  @db.Text
+  procedure   Procedure @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+  createdBy   User @relation("DemandeCreatedBy", fields: [createdById], references: [id])
+  reviewer    User? @relation("DemandeReviewedBy", fields: [reviewerId], references: [id], onDelete: Restrict)
+  published   ResultatPublie?
+  @@index([procedureId, status])
+  @@map("demandes")
+}
+
+model ResultatPublie {
+  id            String   @id @default(uuid())
+  demandeId     String   @unique
+  payload       Json
+  publishedById String
+  publishedAt   DateTime @default(now())
+  demande       Demande @relation(fields: [demandeId], references: [id], onDelete: Restrict)
+  publishedBy   User @relation("ResultPublishedBy", fields: [publishedById], references: [id])
+  @@map("resultats_publies")
+}
+
 // ==================== SYSTÈME D'AUDIT ====================
 
 // Table des journaux d'audit
 model AuditLog {
   id          String   @id @default(uuid())
-  userId      String
+  userId      String?
   action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
   entity      String   // CRIMINAL, USER, CRIME_TYPE, etc.
   entityId    String?
@@ -231,9 +350,11 @@ model AuditLog {
   ipAddress   String?
   userAgent   String?
   timestamp   DateTime @default(now())
+  previousHash String?
+  hash         String?
 
   // Relations
-  user User @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([entity])

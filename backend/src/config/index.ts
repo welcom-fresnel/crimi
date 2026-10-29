@@ -12,8 +12,9 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   
   // Configuration JWT
-  jwtSecret: process.env.JWT_SECRET || 'your-secret-key-change-this',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
+  jwtSecret: process.env.JWT_SECRET || '',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
+  socketFullPayload: process.env.SOCKET_FULL_PAYLOAD === 'true',
   
   // Configuration CORS
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8080',
@@ -49,6 +50,10 @@ export const validateConfig = (): void => {
       `Variables d'environnement manquantes: ${missingVars.join(', ')}\n` +
       'Veuillez créer un fichier .env basé sur .env.example'
     );
+  }
+  if (config.jwtSecret.length < 32) throw new Error('JWT_SECRET doit contenir au moins 32 caractères');
+  if (config.nodeEnv === 'production' && /change|secret_key|securit_afrique_jwt_secret_key_2024_change_in_production/i.test(config.jwtSecret)) {
+    throw new Error('JWT_SECRET doit être remplacé par une clé aléatoire en production');
   }
 };
 

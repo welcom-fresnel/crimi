@@ -5,8 +5,15 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { auditService } from '../services/audit.service';
+import { config } from '../config';
 
 class AuditController {
+  async verifyChain(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const result = await auditService.verifyChain();
+      res.status(200).json({ success: true, data: result });
+    } catch (error) { next(error); }
+  }
   /**
    * Obtenir les journaux d'audit de l'utilisateur connecte
    */
@@ -33,8 +40,8 @@ class AuditController {
    */
   async getAllAuditLogs(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(config.maxPageSize, Math.max(1, parseInt(req.query.limit as string) || config.defaultPageSize));
       
       const filters = {
         userId: req.query.userId as string,

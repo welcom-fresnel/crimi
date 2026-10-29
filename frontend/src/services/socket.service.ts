@@ -55,14 +55,14 @@ class SocketService {
     });
 
     // Événement : Authentification réussie
-    this.socket.on('authenticated', (data) => {
-      if (import.meta.env.DEV) console.log('✅ Connecté au WebSocket:', data);
+    this.socket.on('authenticated', () => {
+      if (import.meta.env.DEV) console.log('✅ Connecté au WebSocket');
       // Ne pas reconnecter si déjà connecté
     });
 
     // Événement : Erreur de connexion
-    this.socket.on('connect_error', (error) => {
-      if (import.meta.env.DEV) console.error('❌ Erreur WebSocket:', error.message);
+    this.socket.on('connect_error', () => {
+      if (import.meta.env.DEV) console.error('❌ Erreur de connexion WebSocket');
     });
 
     // Événement : Déconnexion

@@ -14,7 +14,7 @@ export interface JwtPayload {
 }
 
 export interface AuthRequest extends Request {
-  user?: JwtPayload;
+  user?: JwtPayload & { mustChangePassword?: boolean };
 }
 
 // ==================== TYPES DE DONNÉES ====================
@@ -23,7 +23,7 @@ export type UserStatus = 'ACTIVE' | 'INACTIVE';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type CriminalStatus = 'ACTIVE' | 'ARRESTED' | 'RELEASED' | 'DECEASED' | 'UNKNOWN';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'VIEW';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'VIEW' | 'DENIED';
 export type EntityType = 'CRIMINAL' | 'CRIME' | 'EVIDENCE' | 'USER' | 'CRIME_TYPE' | 'ROLE' | 'PROFILE';
 
 // ==================== INTERFACES DE REQUÊTE ====================
@@ -50,6 +50,7 @@ export interface UpdateUserDto {
   phoneNumber?: string;
   service?: string;
   grade?: string;
+  roleIds?: string[];
 }
 
 export interface LoginDto {
@@ -58,7 +59,7 @@ export interface LoginDto {
 }
 
 export interface CreateCriminalDto {
-  caseNumber: string;
+  caseNumber?: string;
   firstName: string;
   lastName: string;
   alias?: string;
@@ -80,6 +81,8 @@ export interface CreateCriminalDto {
   lastKnownAddress?: string;
   phoneNumber?: string;
   arrestation?: CreateArrestationDto;
+  personSituation?: string;
+  offenseState?: string;
 }
 
 export interface UpdateCriminalDto {
@@ -101,6 +104,8 @@ export interface UpdateCriminalDto {
   lastKnownAddress?: string;
   phoneNumber?: string;
   arrestation?: UpdateArrestationDto;
+  personSituation?: string;
+  offenseState?: string;
 }
 
 export interface CreateArrestationDto {
@@ -128,6 +133,7 @@ export interface CreateEvidenceDto {
   collectedAt?: string | null;
   collectedAtLocation?: string | null;
   fileUrls?: string[];
+  fileHashes?: string[];
 }
 
 export interface UpdateEvidenceDto {
@@ -214,7 +220,7 @@ export interface LoginResponse {
 // ==================== INTERFACES D'AUDIT ====================
 
 export interface AuditLogData {
-  userId: string;
+  userId?: string;
   action: AuditAction;
   entity: EntityType;
   entityId?: string;

@@ -70,7 +70,7 @@ export default function AdminUsers() {
         }
       }
     } catch (error) {
-      console.error('Erreur de chargement des agents:', error);
+      console.error('Échec du chargement des agents.');
       toast.error('Erreur', {
         description: 'Impossible de charger les utilisateurs',
       });
@@ -123,7 +123,7 @@ export default function AdminUsers() {
         await loadData();
       }
     } catch (error) {
-      console.error('Erreur de creation agent:', error);
+      console.error('Échec de création du compte.');
       toast.error('Erreur', {
         description: 'Creation du compte impossible. Verifiez les informations.',
       });
@@ -142,7 +142,7 @@ export default function AdminUsers() {
         await loadData();
       }
     } catch (error) {
-      console.error('Erreur toggle statut:', error);
+      console.error('Échec de modification du statut du compte.');
       toast.error('Erreur', { description: 'Impossible de modifier le statut.' });
     }
   };
@@ -161,7 +161,7 @@ export default function AdminUsers() {
         await loadData();
       }
     } catch (error) {
-      console.error('Erreur suppression utilisateur:', error);
+      console.error('Échec de suppression du compte.');
       toast.error('Erreur', { description: 'Suppression impossible.' });
     }
   };

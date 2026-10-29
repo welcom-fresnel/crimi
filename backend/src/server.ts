@@ -61,13 +61,9 @@ const evidencesDir = path.join(uploadsDir, 'evidences');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir);
 if (!fs.existsSync(evidencesDir)) fs.mkdirSync(evidencesDir);
-app.use('/uploads/photos', express.static(photosDir, {
-  setHeaders: (res) => {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  },
-}));
 
 // Logger HTTP
+morgan.token('url', (req) => (req.url || '').replace(/([?&]t=)[^&]+/g, '$1[MASQUÉ]'));
 if (config.nodeEnv === 'development') {
   app.use(morgan('dev'));
 } else {

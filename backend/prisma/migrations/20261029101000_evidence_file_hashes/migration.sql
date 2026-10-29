@@ -1,0 +1,1 @@
+ALTER TABLE "evidences" ADD COLUMN "fileHashes" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
