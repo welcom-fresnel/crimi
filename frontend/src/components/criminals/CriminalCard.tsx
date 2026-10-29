@@ -2,9 +2,10 @@ import { Criminal } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
-import { Eye, Pencil, User } from 'lucide-react';
+import { Eye, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DangerGauge } from '@/components/hud';
+import { CriminalPhoto } from './CriminalPhoto';
 
 interface CriminalCardProps {
   criminal: Criminal;
@@ -12,25 +13,12 @@ interface CriminalCardProps {
 
 export function CriminalCard({ criminal }: CriminalCardProps) {
   const navigate = useNavigate();
-  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
-  const apiBase = apiUrl?.trim() ? apiUrl.replace(/\/api\/?$/, '') : `http://${window.location.hostname}:5000`;
-  const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
 
   return (
     <Card className={`criminal-record-card glass-card status-frame-${criminal.status.toLowerCase()}`}>
       <CardContent className="p-4">
         <div className="flex gap-3">
-            <div className="criminal-record-photo h-20 w-20 bg-surface-elevated flex items-center justify-center flex-shrink-0">
-            {photoSrc ? (
-              <img
-                src={photoSrc}
-                alt={`${criminal.firstName} ${criminal.lastName}`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <User className="h-10 w-10 text-muted-foreground" />
-            )}
-          </div>
+            <CriminalPhoto criminalId={criminal.id} hasPhoto={Boolean(criminal.photo)} version={criminal.updatedAt} alt={`${criminal.firstName} ${criminal.lastName}`} className="criminal-record-photo h-20 w-20 flex-shrink-0 bg-surface-elevated" />
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>

@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { AxiosError } from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { socketService } from '../services/socket.service';
@@ -18,6 +17,8 @@ interface User {
   email: string;
   roles: string[];
   profile: UserProfile;
+  mustChangePassword: boolean;
+  permissions: Array<{ resource: string; actions: string[] }>;
 }
 
 interface AuthContextType {
@@ -27,10 +28,9 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
-}
-
-interface ApiErrorPayload {
-  message?: string;
+  mustChangePassword: boolean;
+  permissions: Array<{ resource: string; actions: string[] }>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,6 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [permissions, setPermissions] = useState<Array<{ resource: string; actions: string[] }>>([]);
 
   const clearSession = useCallback((redirectToLogin = false) => {
     socketService.disconnect();
@@ -47,6 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
+    setMustChangePassword(false);
+    setPermissions([]);
 
     if (redirectToLogin) {
       navigate('/login', { replace: true });
@@ -56,16 +60,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-
-      if (storedToken && storedUser) {
+      if (storedToken) {
         try {
           const response = await authAPI.getProfile();
 
           if (response.success) {
-            const parsedUser = JSON.parse(storedUser) as User;
+            const profile = response.data;
+            const parsedUser = { ...profile, mustChangePassword: Boolean(profile.mustChangePassword), permissions: profile.permissions || [] } as User;
+            localStorage.setItem('user', JSON.stringify(parsedUser));
             setToken(storedToken);
             setUser(parsedUser);
+            setMustChangePassword(parsedUser.mustChangePassword);
+            setPermissions(parsedUser.permissions);
             socketService.connect(storedToken, parsedUser.profile?.service);
           } else {
             clearSession();
@@ -81,6 +87,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     void initializeAuth();
   }, [clearSession]);
+
+  const refreshProfile = useCallback(async () => {
+    const response = await authAPI.getProfile();
+    if (!response.success) return;
+    const refreshedUser = { ...response.data, mustChangePassword: Boolean(response.data.mustChangePassword), permissions: response.data.permissions || [] } as User;
+    setUser(refreshedUser);
+    setMustChangePassword(refreshedUser.mustChangePassword);
+    setPermissions(refreshedUser.permissions);
+    localStorage.setItem('user', JSON.stringify(refreshedUser));
+  }, []);
+
+  useEffect(() => {
+    const onPasswordChangeRequired = () => setMustChangePassword(true);
+    window.addEventListener('auth:password-change-required', onPasswordChangeRequired);
+    return () => window.removeEventListener('auth:password-change-required', onPasswordChangeRequired);
+  }, []);
 
   useEffect(() => {
     const onUnauthorized = () => {
@@ -104,6 +126,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setToken(newToken);
         setUser(newUser);
+        setMustChangePassword(Boolean(newUser.mustChangePassword));
+        setPermissions(newUser.permissions || []);
 
         socketService.connect(newToken, newUser.profile?.service);
 
@@ -114,16 +138,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: unknown) {
       console.error('Erreur de connexion:', error);
 
-      let message = 'Identifiants invalides';
-      if (error instanceof AxiosError<ApiErrorPayload>) {
-        message = error.response?.data?.message || error.message || message;
-      } else if (error instanceof Error) {
-        message = error.message;
-      }
-
-      toast.error('Erreur de connexion', {
-        description: message,
-      });
       throw error;
     } finally {
       setIsLoading(false);
@@ -148,6 +162,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         isAuthenticated: !!token && !!user,
+        mustChangePassword,
+        permissions,
+        refreshProfile,
       }}
     >
       {children}

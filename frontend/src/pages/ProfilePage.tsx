@@ -1,51 +1,22 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { FormEvent, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { auditAPI, authAPI } from '@/services/api';
+import { authAPI } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-
-interface AuditLogItem {
-  id: string;
-  action?: string;
-  entity?: string;
-  entityId?: string;
-  timestamp?: string;
-  createdAt?: string;
-}
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, mustChangePassword, refreshProfile } = useAuth();
+  const forcePasswordChange = new URLSearchParams(useLocation().search).get('forcePasswordChange') === '1';
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [form, setForm] = useState({
     oldPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-
-  const loadMyLogs = async () => {
-    try {
-      const response = await auditAPI.getMine(1, 100);
-      if (response.success) {
-        setLogs((response.data || []) as AuditLogItem[]);
-      }
-    } catch (error) {
-      console.error('Erreur chargement historique personnel:', error);
-      toast.error('Erreur', {
-        description: "Impossible de charger l'historique personnel.",
-      });
-    }
-  };
-
-  useEffect(() => {
-    void loadMyLogs();
-  }, []);
 
   const onChangePassword = async (event: FormEvent) => {
     event.preventDefault();
@@ -61,6 +32,11 @@ export default function ProfilePage() {
       toast.error('Confirmation invalide', {
         description: 'Le nouveau mot de passe et la confirmation ne correspondent pas.',
       });
+      return;
+    }
+
+    if (form.newPassword.length < 12) {
+      toast.error('Mot de passe trop court', { description: 'Le nouveau mot de passe doit contenir au moins 12 caractères.' });
       return;
     }
 
@@ -80,7 +56,7 @@ export default function ProfilePage() {
           newPassword: '',
           confirmPassword: '',
         });
-        await loadMyLogs();
+        await refreshProfile();
       }
     } catch (error) {
       console.error('Erreur changement mot de passe:', error);
@@ -103,6 +79,8 @@ export default function ProfilePage() {
           Consultez vos informations, changez votre mot de passe et suivez vos activites.
         </p>
       </div>
+
+      {(mustChangePassword || forcePasswordChange) && <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm font-medium">Vous devez changer votre mot de passe avant de continuer</div>}
 
       <Card className="glass-card">
         <CardHeader>
@@ -164,7 +142,7 @@ export default function ProfilePage() {
                 value={form.newPassword}
                 onChange={(e) => setForm((prev) => ({ ...prev, newPassword: e.target.value }))}
                 required
-                minLength={6}
+                minLength={12}
               />
             </div>
             <div className="space-y-2">
@@ -175,7 +153,7 @@ export default function ProfilePage() {
                 value={form.confirmPassword}
                 onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                 required
-                minLength={6}
+                minLength={12}
               />
             </div>
             <div className="md:col-span-3 flex justify-end">
@@ -187,54 +165,6 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>MON JOURNAL D’ACTIVITE</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {logs.map((log) => {
-              const action = (log.action || '').toUpperCase();
-              const label =
-                action === 'CREATE'
-                  ? 'Creation'
-                  : action === 'UPDATE'
-                    ? 'Modification'
-                    : action === 'DELETE'
-                      ? 'Suppression'
-                      : action === 'LOGIN'
-                        ? 'Connexion'
-                        : action === 'LOGOUT'
-                          ? 'Deconnexion'
-                          : action || 'Action';
-
-              const dateValue = log.timestamp || log.createdAt;
-
-              return (
-                <div key={log.id} className="profile-audit-row flex items-center justify-between gap-3 border border-border bg-surface p-3">
-                  <div>
-                    <p className="font-medium text-sm">{label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {log.entity || 'SYSTEME'} {log.entityId ? `· ${log.entityId}` : ''}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant="outline">{action || '-'}</Badge>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {dateValue
-                        ? format(new Date(dateValue), 'dd/MM/yyyy HH:mm', { locale: fr })
-                        : '-'}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-            {logs.length === 0 && (
-              <p className="text-sm text-muted-foreground">Aucune activite enregistree pour le moment.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -261,16 +261,7 @@ export async function createCriminalPdf(criminal: Criminal, evidences: Evidence[
   let portraitUnavailable = false;
   if (criminal.photo) {
     try {
-      const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
-      const apiBase = configuredApiUrl?.trim()
-        ? configuredApiUrl.replace(/\/api\/?$/, '')
-        : `http://${window.location.hostname || '127.0.0.1'}:5000`;
-      const photoUrl = criminal.photo.startsWith('http')
-        ? criminal.photo
-        : `${apiBase}${criminal.photo.startsWith('/') ? '' : '/'}${criminal.photo}`;
-      const response = await fetch(photoUrl);
-      if (response.ok) portrait = await loadPdfImage(await response.blob());
-      else portraitUnavailable = true;
+      portrait = await loadPdfImage(await criminalsAPI.getPhoto(criminal.id, 'detail'));
     } catch {
       portraitUnavailable = true;
     }

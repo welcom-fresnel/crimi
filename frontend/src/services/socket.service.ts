@@ -19,7 +19,8 @@ interface CriminalSocketPayload {
   criminal?: Record<string, unknown>;
   criminalId?: string;
   caseNumber?: string;
-  createdBy?: { username?: string };
+  by?: { id: string; username: string };
+  timestamp?: string;
 }
 
 interface NotificationPayload {
@@ -35,7 +36,7 @@ class SocketService {
   // Connexion au serveur WebSocket
   connect(token: string, postId?: string) {
     if (this.socket?.connected) {
-      console.log('🔌 Socket déjà connecté');
+      if (import.meta.env.DEV) console.log('🔌 Socket déjà connecté');
       return;
     }
 
@@ -46,7 +47,7 @@ class SocketService {
       this.socket = null;
     }
 
-    console.log('🔌 Connexion au WebSocket...');
+    if (import.meta.env.DEV) console.log('🔌 Connexion au WebSocket...');
 
     this.socket = io(SOCKET_URL, {
       auth: { token },
@@ -55,18 +56,18 @@ class SocketService {
 
     // Événement : Authentification réussie
     this.socket.on('authenticated', (data) => {
-      console.log('✅ Connecté au WebSocket:', data);
+      if (import.meta.env.DEV) console.log('✅ Connecté au WebSocket:', data);
       // Ne pas reconnecter si déjà connecté
     });
 
     // Événement : Erreur de connexion
     this.socket.on('connect_error', (error) => {
-      console.error('❌ Erreur WebSocket:', error.message);
+      if (import.meta.env.DEV) console.error('❌ Erreur WebSocket:', error.message);
     });
 
     // Événement : Déconnexion
     this.socket.on('disconnect', (reason) => {
-      console.log('📡 Déconnecté:', reason);
+      if (import.meta.env.DEV) console.log('📡 Déconnecté:', reason);
     });
 
     // Réattacher les listeners enregistrés
@@ -82,7 +83,7 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
-      console.log('🔌 Déconnecté du WebSocket');
+      if (import.meta.env.DEV) console.log('🔌 Déconnecté du WebSocket');
     }
   }
 
@@ -92,7 +93,9 @@ class SocketService {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event)?.push(callback);
+    const callbacks = this.listeners.get(event);
+    if (callbacks?.includes(callback)) return;
+    callbacks?.push(callback);
 
     // Attacher au socket si connecté
     if (this.socket) {

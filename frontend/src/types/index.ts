@@ -69,8 +69,8 @@ export interface Criminal {
   dateOfBirth?: string;
   nationality?: string;
   gender?: string;
-  photoUrl?: string;
   photo?: string;
+  hasPhoto?: boolean;
   fingerprint?: string;
   crimeType: CrimeType;
   crimeTypeId?: string;

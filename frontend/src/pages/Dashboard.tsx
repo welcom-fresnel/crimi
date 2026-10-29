@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AnimatedNumber, HudCard, SectionHeader } from '@/components/hud';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, UserX, AlertTriangle, Clock, User, ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { Users, UserCheck, UserX, AlertTriangle, Clock, ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { CriminalPhoto } from '@/components/criminals/CriminalPhoto';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -13,7 +14,6 @@ export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
-  const apiBase = ((import.meta.env.VITE_API_URL as string | undefined) || `http://${window.location.hostname}:5000/api`).replace(/\/api\/?$/, '');
 
   const stats = {
     total: criminals.length,
@@ -130,7 +130,6 @@ export default function Dashboard() {
           <div className="activity-timeline">
             {criminals.length > 0 ? (
               criminals.slice(0, 5).map((criminal, index) => {
-                const photoSrc = criminal.photoUrl ?? (criminal.photo ? `${apiBase}${criminal.photo}` : undefined);
                 return (
                   <motion.button
                     key={criminal.id}
@@ -142,9 +141,7 @@ export default function Dashboard() {
                     transition={{ duration: prefersReducedMotion ? 0 : 0.2, delay: prefersReducedMotion ? 0 : index * 0.045 }}
                   >
                     <span className={`activity-timeline-dot status-dot-${criminal.status.toLowerCase()}`} aria-hidden="true" />
-                    <span className="activity-avatar">
-                      {photoSrc ? <img src={photoSrc} alt="" /> : <User aria-hidden="true" className="h-4 w-4" />}
-                    </span>
+                    <CriminalPhoto criminalId={criminal.id} hasPhoto={Boolean(criminal.photo)} version={criminal.updatedAt} alt="" className="activity-avatar" />
                     <span className="activity-copy">
                       <span className="activity-name">{criminal.lastName} {criminal.firstName}</span>
                       <span className="activity-case">{criminal.caseNumber || criminal.fileNumber} · {criminal.crimeType?.name || 'Type inconnu'}</span>

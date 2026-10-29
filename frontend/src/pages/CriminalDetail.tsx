@@ -4,23 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/criminals/StatusBadge';
 import EvidenceSection from '@/components/criminals/EvidenceSection';
-import { ArrowLeft, Download, Pencil, Printer, User, Calendar, MapPin, FileText, ChevronLeft, ChevronRight, Shield, Clock3 } from 'lucide-react';
+import { ArrowLeft, Download, Pencil, Printer, User, Calendar, MapPin, FileText, Shield, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { criminalsAPI } from '@/services/api';
 import { createCriminalPdf, getCriminalPdfFileName } from '@/lib/criminal-pdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DangerGauge, PageTransition } from '@/components/hud';
-
-const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-
-const normalizeUrl = (value?: string) => {
-  if (!value) return undefined;
-  if (value.startsWith('http://') || value.startsWith('https://')) return value;
-  return `${apiBase}${value.startsWith('/') ? value : `/${value}`}`;
-};
+import { CriminalPhoto } from '@/components/criminals/CriminalPhoto';
 
 export default function CriminalDetail() {
   const { id } = useParams<{ id: string }>();
@@ -43,19 +36,6 @@ export default function CriminalDetail() {
     if (Number.isNaN(date.getTime())) return 'Non renseignee';
     return format(date, "d MMMM yyyy 'a' HH:mm", { locale: fr });
   };
-
-  const photoImages = useMemo(() => {
-    return [normalizeUrl(criminal?.photo)]
-      .filter(Boolean)
-      .filter((value, index, self) => self.indexOf(value) === index) as string[];
-  }, [criminal?.photo]);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const currentImage = photoImages[currentImageIndex] || undefined;
-  useEffect(() => {
-    if (currentImageIndex >= photoImages.length) {
-      setCurrentImageIndex(0);
-    }
-  }, [currentImageIndex, photoImages.length]);
 
   const exportCriminalPdf = async (printAfterExport = false) => {
     if (!criminal) return;
@@ -143,41 +123,7 @@ export default function CriminalDetail() {
         <div className="md:col-span-1">
           <Card className="glass-card">
             <CardContent className="p-6">
-              <div className={`criminal-portrait aspect-square flex items-center justify-center mb-4 overflow-hidden relative status-frame-${criminal.status.toLowerCase()}`}>
-                {currentImage ? (
-                  <>
-                    <img
-                      src={currentImage}
-                      alt={`${criminal.firstName} ${criminal.lastName}`}
-                      className="h-full w-full object-cover"
-                    />
-                    {photoImages.length > 1 && (
-                      <>
-                        <button
-                          type="button"
-                          className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-background/80 border flex items-center justify-center"
-                          onClick={() =>
-                            setCurrentImageIndex((prev) => (prev - 1 + photoImages.length) % photoImages.length)
-                          }
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-background/80 border flex items-center justify-center"
-                          onClick={() =>
-                            setCurrentImageIndex((prev) => (prev + 1) % photoImages.length)
-                          }
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <User className="h-20 w-20 text-muted-foreground" />
-                )}
-              </div>
+              <CriminalPhoto criminalId={criminal.id} hasPhoto={Boolean(criminal.photo)} version={criminal.updatedAt} context="detail" alt={`${criminal.firstName} ${criminal.lastName}`} className={`criminal-portrait aspect-square mb-4 status-frame-${criminal.status.toLowerCase()}`} />
               <div className="text-center">
                 <h2 className="text-xl font-semibold">
                   {criminal.lastName} {criminal.firstName}

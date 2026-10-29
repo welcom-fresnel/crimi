@@ -40,6 +40,8 @@ interface AuthUser {
   email: string;
   roles: string[];
   profile: Profile;
+  mustChangePassword?: boolean;
+  permissions?: Array<{ resource: string; actions: string[] }>;
 }
 
 interface LoginResponse {
@@ -164,12 +166,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-
-
-
     }
+    if (error.response?.status === 403 && error.response?.data?.code === 'PASSWORD_CHANGE_REQUIRED')
+      window.dispatchEvent(new CustomEvent('auth:password-change-required'));
     return Promise.reject(error);
   }
 );
@@ -213,6 +214,14 @@ export const criminalsAPI = {
 
   getById: async (id: string) => {
     const response = await api.get<ApiResponse<Criminal>>(`/criminals/${id}`);
+    return response.data;
+  },
+
+  getPhoto: async (id: string, context?: 'detail', signal?: AbortSignal) => {
+    const response = await api.get<Blob>(`/criminals/${id}/photo${context ? `?context=${context}` : ''}`, {
+      responseType: 'blob',
+      signal,
+    });
     return response.data;
   },
 
@@ -354,8 +363,11 @@ export const usersAPI = {
 // ==================== AUDIT ====================
 
 export const auditAPI = {
-  getAll: async (page = 1, limit = 100) => {
-    const response = await api.get<ApiResponse<unknown[]>>(`/audit?page=${page}&limit=${limit}`);
+  getAll: async (page = 1, limit = 100, filters?: { action?: string; entity?: string }) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (filters?.action) params.set('action', filters.action);
+    if (filters?.entity) params.set('entity', filters.entity);
+    const response = await api.get<ApiResponse<unknown[]>>(`/audit?${params.toString()}`);
     return response.data;
   },
 
@@ -371,6 +383,11 @@ export const auditAPI = {
 
   getMine: async (page = 1, limit = 100) => {
     const response = await api.get<ApiResponse<unknown[]>>(`/audit/me?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  verify: async () => {
+    const response = await api.get<ApiResponse<{ valid: boolean; firstInvalid?: unknown }>>('/audit/verify');
     return response.data;
   },
 };

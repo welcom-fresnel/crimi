@@ -1,7 +1,7 @@
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CriminalsProvider } from '@/contexts/CriminalsContext';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -22,7 +22,8 @@ import NotFound from './pages/NotFound';
 const queryClient = new QueryClient();
 
 function ProtectedLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return null;
@@ -30,6 +31,10 @@ function ProtectedLayout() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (mustChangePassword && location.pathname !== '/profile') {
+    return <Navigate to="/profile?forcePasswordChange=1" replace />;
   }
 
   return (

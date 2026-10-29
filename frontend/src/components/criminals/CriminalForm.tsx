@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, Plus, X } from 'lucide-react';
+import { CriminalPhoto } from './CriminalPhoto';
+import { invalidateCriminalPhoto } from '@/hooks/useCriminalPhoto';
 
 const criminalSchema = z.object({
   firstName: z.string().min(2, 'Le prenom est requis'),
@@ -59,6 +61,8 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
   const { crimeTypes, addCriminal, updateCriminal } = useCriminals();
   const { upsertCriminal } = useCriminals();
   const [pendingCrimes, setPendingCrimes] = useState<CrimeRecord[]>([]);
+  const [photoPreview, setPhotoPreview] = useState<string>();
+  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
   const [crimeDraft, setCrimeDraft] = useState({
     crimeTypeId: '',
     crimeDate: '',
@@ -228,6 +232,7 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
           const { criminalsAPI } = await import('@/services/api');
           const uploadResp = await criminalsAPI.uploadPhoto(createdId, file);
           if (uploadResp && uploadResp.success && uploadResp.data) {
+            invalidateCriminalPhoto(createdId);
             upsertCriminal(uploadResp.data);
           }
         } catch (err) {
@@ -334,7 +339,11 @@ export function CriminalForm({ criminal, isEditing = false }: CriminalFormProps)
       </nav>
       <div className="mb-4">
         <Label htmlFor="photo">Photo du criminel</Label>
-        <input id="photo" name="photo" type="file" accept="image/*" />
+        <input id="photo" name="photo" type="file" accept="image/*" onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          setPhotoPreview((current) => { if (current) URL.revokeObjectURL(current); return file ? URL.createObjectURL(file) : undefined; });
+        }} />
+        {photoPreview ? <img src={photoPreview} alt="Aperçu de la photo sélectionnée" className="mt-3 h-24 w-24 rounded object-cover" /> : criminal && <CriminalPhoto criminalId={criminal.id} hasPhoto={Boolean(criminal.photo)} version={criminal.updatedAt} alt={`${criminal.firstName} ${criminal.lastName}`} className="mt-3 h-24 w-24 rounded bg-surface-elevated" />}
       </div>
       <div className="grid gap-6 md:grid-cols-2">
         <Card id="criminal-step-identity" className="glass-card form-step-section">

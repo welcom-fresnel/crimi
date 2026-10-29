@@ -189,6 +189,7 @@ export default function AdminUsers() {
                 value={form.username}
                 onChange={(e) => onFormChange('username', e.target.value)}
                 required
+                minLength={12}
               />
             </div>
             <div className="space-y-2">
@@ -245,7 +246,9 @@ export default function AdminUsers() {
                 value={form.password}
                 onChange={(e) => onFormChange('password', e.target.value)}
                 required
+                minLength={12}
               />
+              <p className="text-xs text-muted-foreground">Au moins 12 caractères.</p>
             </div>
             <div className="space-y-2">
               <Label>Role</Label>

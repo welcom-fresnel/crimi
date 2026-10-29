@@ -34,9 +34,11 @@ export default function Login() {
     } catch (err: unknown) {
       let message = 'Identifiants incorrects.';
       if (err instanceof AxiosError<ApiErrorPayload>) {
-        message = err.response?.data?.message || err.message || message;
-      } else if (err instanceof Error) {
-        message = err.message;
+        message = err.response?.status === 429
+          ? 'Trop de tentatives de connexion. Réessayez dans quelques minutes.'
+          : 'Identifiants invalides';
+      } else {
+        message = 'Identifiants invalides';
       }
 
       toast.error('Echec de connexion', {

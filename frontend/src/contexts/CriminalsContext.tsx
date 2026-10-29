@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AxiosError } from 'axios';
-import { auditAPI, criminalsAPI, crimeTypesAPI } from '../services/api';
+import { criminalsAPI, crimeTypesAPI } from '../services/api';
 import { socketService } from '../services/socket.service';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
@@ -44,25 +44,9 @@ interface ApiErrorPayload {
   message?: string;
 }
 
-interface AuditLogItem {
-  id: string;
-  action?: string;
-  entity?: string;
-  createdAt?: string;
-  timestamp?: string;
-  userName?: string;
-  user?: {
-    username?: string;
-  };
-  criminalName?: string;
-  entityId?: string;
-  changes?: Record<string, unknown> | null;
-}
-
 interface CriminalsContextType {
   criminals: Criminal[];
   crimeTypes: CrimeType[];
-  auditLogs: AuditLogItem[];
   isLoading: boolean;
   fetchCriminals: () => Promise<void>;
   fetchCrimeTypes: () => Promise<void>;
@@ -77,9 +61,19 @@ const CriminalsContext = createContext<CriminalsContextType | undefined>(undefin
 export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [criminals, setCriminals] = useState<Criminal[]>([]);
   const [crimeTypes, setCrimeTypes] = useState<CrimeType[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { isAuthenticated } = useAuth();
+  const searchParamsRef = useRef<CriminalSearchParams | null>(null);
+  const refreshTimerRef = useRef<number | null>(null);
+
+  const scheduleRefresh = () => {
+    if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null;
+      if (searchParamsRef.current) void searchCriminals(searchParamsRef.current);
+      else void fetchCriminals();
+    }, 1500);
+  };
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (error instanceof AxiosError<ApiErrorPayload>) {
@@ -91,28 +85,10 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return fallback;
   };
 
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-
-  const mapCriminal = (criminal: CriminalPayload): Criminal => {
-    const toAbsoluteUrl = (value?: string) => {
-      if (!value) return value;
-      if (value.startsWith('http://') || value.startsWith('https://')) return value;
-      return `${apiBase}${value}`;
-    };
-
-    const photoPath = criminal.photo || criminal.photoUrl || null;
-    const photoUrl = photoPath ? toAbsoluteUrl(photoPath) : undefined;
-    const evidences = (criminal.evidences || []).map((evidence) => ({
-      ...evidence,
-      fileUrls: (evidence.fileUrls || []).map((url) => toAbsoluteUrl(url) || url),
-    }));
-
-    return {
-      ...criminal,
-      photoUrl,
-      evidences,
-    } as Criminal;
-  };
+  const mapCriminal = (criminal: CriminalPayload): Criminal => ({
+    ...criminal,
+    hasPhoto: Boolean(criminal.photo),
+  } as Criminal);
 
   const upsertCriminal = (criminal: CriminalPayload) => {
     const mapped = mapCriminal(criminal);
@@ -128,29 +104,33 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setupRealtimeListeners = () => {
     socketService.onCriminalCreated((data) => {
       const received = data.criminal as CriminalPayload | undefined;
-      if (!received) return;
+      if (received) {
+        const mapped = mapCriminal(received);
+        setCriminals((prev) => {
+          const exists = prev.some((item) => item.id === mapped.id);
+          if (exists) return prev;
+          return [mapped, ...prev];
+        });
+      } else {
+        scheduleRefresh();
+      }
 
-      const mapped = mapCriminal(received);
-      setCriminals((prev) => {
-        const exists = prev.some((item) => item.id === mapped.id);
-        if (exists) return prev;
-        return [mapped, ...prev];
-      });
-
-      toast.info('Nouveau criminel enregistre', {
-        description: `Dossier ${received.caseNumber} cree par ${data.createdBy?.username || 'Systeme'}`,
+      toast.info('Nouveau dossier enregistré', {
+        description: `Dossier ${data.caseNumber || ''} créé par ${data.by?.username || 'Système'}`,
       });
     });
 
     socketService.onCriminalUpdated((data) => {
       const received = data.criminal as CriminalPayload | undefined;
-      if (!received) return;
+      if (received) {
+        const mapped = mapCriminal(received);
+        setCriminals((prev) => prev.map((item) => (item.id === mapped.id ? mapped : item)));
+      } else {
+        scheduleRefresh();
+      }
 
-      const mapped = mapCriminal(received);
-      setCriminals((prev) => prev.map((item) => (item.id === mapped.id ? mapped : item)));
-
-      toast.warning('Dossier mis a jour', {
-        description: `Le dossier ${received.caseNumber} a ete modifie`,
+      toast.warning('Dossier mis à jour', {
+        description: `Le dossier ${data.caseNumber || ''} a été modifié par ${data.by?.username || 'Système'}`,
       });
     });
 
@@ -160,7 +140,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setCriminals((prev) => prev.filter((item) => item.id !== data.criminalId));
 
       toast.error('Dossier supprime', {
-        description: `Le dossier ${data.caseNumber || ''} a ete supprime`,
+        description: `Le dossier ${data.caseNumber || ''} a été supprimé par ${data.by?.username || 'Système'}`,
       });
     });
 
@@ -184,11 +164,11 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (isAuthenticated) {
       void fetchCriminals();
       void fetchCrimeTypes();
-      void fetchAuditLogs();
       setupRealtimeListeners();
     }
 
     return () => {
+      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
       socketService.off('criminal:created');
       socketService.off('criminal:updated');
       socketService.off('criminal:deleted');
@@ -198,6 +178,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [isAuthenticated]);
 
   const fetchCriminals = async () => {
+    searchParamsRef.current = null;
     try {
       setIsLoading(true);
       const response = await criminalsAPI.getAll(1, 100);
@@ -227,17 +208,6 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       toast.error('Erreur', {
         description: 'Impossible de charger les types de crimes',
       });
-    }
-  };
-
-  const fetchAuditLogs = async () => {
-    try {
-      const response = await auditAPI.getAll(1, 100);
-      if (response.success) {
-        setAuditLogs((response.data || []) as AuditLogItem[]);
-      }
-    } catch (error) {
-      console.error("Erreur de chargement des logs d'audit:", error);
     }
   };
 
@@ -287,6 +257,7 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const searchCriminals = async (params: CriminalSearchParams) => {
+    searchParamsRef.current = params;
     try {
       setIsLoading(true);
       const response = await criminalsAPI.search(params);
@@ -310,7 +281,6 @@ export const CriminalsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         criminals,
         crimeTypes,
-        auditLogs,
         isLoading,
         fetchCriminals,
         fetchCrimeTypes,
